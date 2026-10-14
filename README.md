@@ -8,7 +8,7 @@ Stack: Node, TypeScript, React.
 
 ## Getting started
 
-Requires Node 22 (see `.nvmrc`).
+Requires Node 22.22.2 or newer within 22.x (see `.nvmrc`; run `nvm use`).
 
 ```sh
 npm install
