@@ -1,8 +1,9 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
@@ -39,5 +40,23 @@ describe("API health on the placeholder page", () => {
     render(<App />);
 
     expect(await screen.findByText("API: unreachable")).toBeInTheDocument();
+  });
+
+  it("recovers once the server comes up after the page loads", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+        .mockResolvedValue(Response.json({ status: "ok" })),
+    );
+
+    render(<App />);
+    await act(() => vi.advanceTimersByTimeAsync(0));
+    expect(screen.getByText("API: unreachable")).toBeInTheDocument();
+
+    await act(() => vi.advanceTimersByTimeAsync(5000));
+    expect(screen.getByText("API: ok")).toBeInTheDocument();
   });
 });
