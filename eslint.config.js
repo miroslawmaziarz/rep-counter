@@ -7,6 +7,13 @@ export default tseslint.config(
   js.configs.recommended,
   tseslint.configs.recommended,
   {
+    files: ["**/*.cjs"],
+    languageOptions: {
+      sourceType: "commonjs",
+      globals: { module: "writable", require: "readonly" },
+    },
+  },
+  {
     files: ["apps/web/**/*.{ts,tsx}"],
     ...reactHooks.configs.flat.recommended,
   },
