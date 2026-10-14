@@ -12,19 +12,24 @@ The knee angle goes **below 100°**, then comes back **above 160°**. Nothing el
 
 ## Repository contents
 
-| Path | Description |
-| --- | --- |
-| `rep-counter-v2.html` | The original task brief (open in a browser). |
-| `fixtures/session-clean.json` | Ten full squats, clean signal. Expected reps: 10. |
-| `fixtures/session-noisy.json` | Eight full squats; noisy tracking, and the patient pauses at the bottom of each. Expected reps: 8. |
-| `fixtures/session-shallow.json` | Ten attempts; three only go halfway down. Expected reps: 7. |
+| Path                            | Description                                                                                        |
+| ------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `rep-counter-v2.html`           | The original task brief (open in a browser).                                                       |
+| `fixtures/session-clean.json`   | Ten full squats, clean signal. Expected reps: 10.                                                  |
+| `fixtures/session-noisy.json`   | Eight full squats; noisy tracking, and the patient pauses at the bottom of each. Expected reps: 8. |
+| `fixtures/session-shallow.json` | Ten attempts; three only go halfway down. Expected reps: 7.                                        |
 
 ## Fixture format
 
 Sessions are sampled at 30 frames per second.
 
 ```json
-{ "description": "...", "expectedReps": 10, "sampleRateHz": 30, "angles": [171.2, 172.4, "..."] }
+{
+  "description": "...",
+  "expectedReps": 10,
+  "sampleRateHz": 30,
+  "angles": [171.2, 172.4, "..."]
+}
 ```
 
 ## Planned scope
