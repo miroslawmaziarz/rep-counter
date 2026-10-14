@@ -8,13 +8,15 @@ afterEach(() => {
 
 describe("API health on the placeholder page", () => {
   it("shows the API is ok when /api/health answers", async () => {
-    const fetch = vi.fn().mockResolvedValue(Response.json({ status: "ok" }));
-    vi.stubGlobal("fetch", fetch);
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(Response.json({ status: "ok" }));
+    vi.stubGlobal("fetch", fetchMock);
 
     render(<App />);
 
     expect(await screen.findByText("API: ok")).toBeInTheDocument();
-    expect(fetch.mock.calls[0]?.[0]).toBe("/api/health");
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/health");
   });
 
   it("shows the API is unreachable when the proxy cannot reach the server", async () => {
