@@ -4,7 +4,19 @@ Take-home task for Physitrack MoCap. A patient does squats in front of a camera,
 
 Stack: Node, TypeScript, React.
 
-> **Status:** the repo currently holds the task brief and fixtures only. The implementation is not yet added.
+> **Status:** the workspace, tooling and app shells are in place: the web app shows whether the API is reachable. Rep counting and sessions are not yet added.
+
+## Getting started
+
+Requires Node 22 (see `.nvmrc`).
+
+```sh
+npm install
+npm start   # API on http://localhost:3000, web app on http://localhost:5173
+npm test
+```
+
+If port 3000 is taken, run `PORT=3001 npm start`; the API and the web app's proxy both follow `PORT`.
 
 ## What counts as one rep
 
