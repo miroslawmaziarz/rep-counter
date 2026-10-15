@@ -28,12 +28,16 @@ function testApp(): FastifyInstance {
   return app;
 }
 
-function post(app: FastifyInstance, token: string, payload: unknown) {
+/** Posts `body` as JSON: an object is serialised, a string is sent as is. */
+function post(app: FastifyInstance, token: string, body: object | string) {
   return app.inject({
     method: "POST",
     url: "/sessions",
-    headers: { authorization: `Bearer ${token}` },
-    payload: payload as object,
+    headers: {
+      authorization: `Bearer ${token}`,
+      "content-type": "application/json",
+    },
+    payload: typeof body === "string" ? body : JSON.stringify(body),
   });
 }
 
@@ -196,15 +200,7 @@ describe("POST /sessions", () => {
     async (_, body) => {
       const app = testApp();
 
-      const response = await app.inject({
-        method: "POST",
-        url: "/sessions",
-        headers: {
-          authorization: `Bearer ${JULIA}`,
-          "content-type": "application/json",
-        },
-        payload: body,
-      });
+      const response = await post(app, JULIA, body);
 
       expect(response.statusCode).toBe(400);
       expect(response.json()).toMatchObject({
