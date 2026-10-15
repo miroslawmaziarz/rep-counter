@@ -15,7 +15,8 @@ jobs:
         run: |
           pattern='^(repo|core(, server)?(, web)?|server(, web)?|web): [A-Z]'
           if ! printf '%s\n' "$PR_TITLE" | grep -Eq "$pattern"; then
-            echo "::error title=PR title::Expected '<scopes>: <Sentence>' matching $pattern (e.g. 'server, web: Save a Session Result'). Got: $PR_TITLE"
+            echo "::error title=PR title::Expected '<scopes>: <Sentence>' matching $pattern (e.g. 'server, web: Save a Session Result')."
+            printf 'Got: %s\n' "$PR_TITLE"
             exit 1
           fi
 
