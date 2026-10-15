@@ -13,3 +13,37 @@ describe("countReps on the Fixtures", () => {
     expect(countReps(fixture.angles)).toBe(fixture.expectedReps);
   });
 });
+
+describe("countReps on hand-written Recordings", () => {
+  it("counts a Rep that goes below 100° and back above 160°", () => {
+    expect(countReps([172, 99, 161])).toBe(1);
+  });
+
+  it("does not arm a Rep at exactly 100°", () => {
+    expect(countReps([172, 100, 172])).toBe(0);
+  });
+
+  it("does not complete a Rep at exactly 160°", () => {
+    expect(countReps([172, 90, 160, 160])).toBe(0);
+  });
+
+  it("counts a Recording that starts deep and then stands", () => {
+    expect(countReps([90, 130, 172])).toBe(1);
+  });
+
+  it("gives no credit for a Rep still deep when the Recording ends", () => {
+    expect(countReps([172, 90, 172, 90, 130])).toBe(1);
+  });
+
+  it("counts once however often the angle crosses 100° before standing", () => {
+    expect(countReps([172, 99, 101, 98, 120, 95, 172])).toBe(1);
+  });
+
+  it("gives 0 for an empty Recording", () => {
+    expect(countReps([])).toBe(0);
+  });
+
+  it("skips NaN frames", () => {
+    expect(countReps([172, NaN, 90, NaN, 172, NaN])).toBe(1);
+  });
+});
