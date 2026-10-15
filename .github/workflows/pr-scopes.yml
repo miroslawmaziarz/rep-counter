@@ -13,8 +13,9 @@ jobs:
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
-          if ! printf '%s\n' "$PR_TITLE" | grep -Eq '^(core|repo|server|web)(, (core|repo|server|web))*: [A-Z]'; then
-            echo "::error title=PR title::Expected '<scopes>: <Sentence starting with a capital letter>', scopes from core, repo, server, web (e.g. 'server, web: Save a Session Result'). Got: $PR_TITLE"
+          pattern='^(repo|core(, server)?(, web)?|server(, web)?|web): [A-Z]'
+          if ! printf '%s\n' "$PR_TITLE" | grep -Eq "$pattern"; then
+            echo "::error title=PR title::Expected '<scopes>: <Sentence>' matching $pattern (e.g. 'server, web: Save a Session Result'). Got: $PR_TITLE"
             exit 1
           fi
 
