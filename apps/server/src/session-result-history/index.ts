@@ -1,19 +1,14 @@
-import type { Patient } from "@rep-counter/core";
+import {
+  parseSessionResult,
+  type Patient,
+  type SessionResult,
+} from "@rep-counter/core";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 /** `node:sqlite`'s name for a database that lives only in memory. */
 const IN_MEMORY = ":memory:";
-
-/** What is kept about a Session. */
-export type SessionResult = {
-  sessionId: string;
-  reps: number;
-  durationSec: number;
-  /** ISO 8601 with an offset; stored and returned in UTC (`…Z`). */
-  performedAt: string;
-};
 
 /**
  * What saving did, with the Session Result as stored:
@@ -77,11 +72,7 @@ export function openSessionResultHistory(
   `);
 
   return {
-    save(patient, received) {
-      const sessionResult = {
-        ...received,
-        performedAt: new Date(received.performedAt).toISOString(),
-      };
+    save(patient, sessionResult) {
       const { changes } = insert.run(
         patient.id,
         sessionResult.sessionId,
@@ -115,11 +106,22 @@ function sameValues(a: SessionResult, b: SessionResult): boolean {
   );
 }
 
+/**
+ * A stored row as a Session Result, made by core's `parseSessionResult` like
+ * any other. Only parsed Session Results are saved, so a row that is not one
+ * means the database was changed behind this module's back.
+ */
 function toSessionResult(row: Record<string, unknown>): SessionResult {
-  return {
-    sessionId: row.session_id as string,
-    reps: row.reps as number,
-    durationSec: row.duration_sec as number,
-    performedAt: row.performed_at as string,
-  };
+  const result = parseSessionResult({
+    sessionId: row.session_id,
+    reps: row.reps,
+    durationSec: row.duration_sec,
+    performedAt: row.performed_at,
+  });
+  if (!result.ok) {
+    throw new Error(
+      `A stored row is not a Session Result: ${result.problems.join("; ")}`,
+    );
+  }
+  return result.sessionResult;
 }

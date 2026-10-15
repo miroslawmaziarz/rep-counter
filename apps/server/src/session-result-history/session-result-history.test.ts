@@ -1,9 +1,15 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { describe, expect, it, onTestFinished } from "vitest";
-import { patients, type Patient } from "@rep-counter/core";
-import { openSessionResultHistory, type SessionResult } from "./index";
+import {
+  parseSessionResult,
+  patients,
+  type Patient,
+  type SessionResult,
+} from "@rep-counter/core";
+import { openSessionResultHistory } from "./index";
 
 const julia = patientNamed("Julia");
 const franek = patientNamed("Franek");
@@ -14,12 +20,19 @@ function patientNamed(name: string): Patient {
   return patient;
 }
 
-const sessionResult: SessionResult = {
+/** A Session Result from plain fields, as only `parseSessionResult` makes one. */
+function parsed(fields: Record<string, unknown>): SessionResult {
+  const result = parseSessionResult(fields);
+  if (!result.ok) throw new Error(result.problems.join("; "));
+  return result.sessionResult;
+}
+
+const sessionResult = parsed({
   sessionId: "session-1",
   reps: 12,
   durationSec: 45.5,
   performedAt: "2026-10-14T09:30:00.000Z",
-};
+});
 
 describe("Session Result history", () => {
   it("saves a Session Result and lists it for its Patient", () => {
@@ -35,13 +48,13 @@ describe("Session Result history", () => {
     const history = openSessionResultHistory(":memory:");
     history.save(julia, sessionResult);
 
-    const resent = history.save(julia, { ...sessionResult });
+    const resent = history.save(julia, parsed({ ...sessionResult }));
 
     expect(resent).toEqual({ outcome: "resent", sessionResult });
     expect(history.list(julia)).toEqual([sessionResult]);
   });
 
-  it.each<[string, Partial<SessionResult>]>([
+  it.each<[string, Record<string, unknown>]>([
     ["reps", { reps: 13 }],
     ["durationSec", { durationSec: 46 }],
     ["performedAt", { performedAt: "2026-10-14T09:31:00.000Z" }],
@@ -51,7 +64,10 @@ describe("Session Result history", () => {
       const history = openSessionResultHistory(":memory:");
       history.save(julia, sessionResult);
 
-      const resent = history.save(julia, { ...sessionResult, ...change });
+      const resent = history.save(
+        julia,
+        parsed({ ...sessionResult, ...change }),
+      );
 
       expect(resent).toEqual({ outcome: "conflict", sessionResult });
       expect(history.list(julia)).toEqual([sessionResult]);
@@ -60,7 +76,7 @@ describe("Session Result history", () => {
 
   it("keeps each Patient's sessionIds apart", () => {
     const history = openSessionResultHistory(":memory:");
-    const franeks = { ...sessionResult, reps: 3 };
+    const franeks = parsed({ ...sessionResult, reps: 3 });
 
     history.save(julia, sessionResult);
     const saved = history.save(franek, franeks);
@@ -70,17 +86,14 @@ describe("Session Result history", () => {
     expect(history.list(franek)).toEqual([franeks]);
   });
 
-  it("stores performedAt in UTC, so the same instant in another offset is an identical Resend", () => {
+  it("treats the same instant parsed from +00:00 and Z as an identical Resend", () => {
     const history = openSessionResultHistory(":memory:");
 
-    const saved = history.save(julia, {
-      ...sessionResult,
-      performedAt: "2026-10-14T11:30:00+02:00",
-    });
-    const resent = history.save(julia, {
-      ...sessionResult,
-      performedAt: "2026-10-14T09:30:00+00:00",
-    });
+    const saved = history.save(
+      julia,
+      parsed({ ...sessionResult, performedAt: "2026-10-14T09:30:00+00:00" }),
+    );
+    const resent = history.save(julia, sessionResult);
 
     expect(saved).toEqual({ outcome: "saved", sessionResult });
     expect(resent).toEqual({ outcome: "resent", sessionResult });
@@ -89,11 +102,8 @@ describe("Session Result history", () => {
 
   it("lists newest performedAt first, and same-instant Session Results in save order", () => {
     const history = openSessionResultHistory(":memory:");
-    const at = (sessionId: string, performedAt: string) => ({
-      ...sessionResult,
-      sessionId,
-      performedAt,
-    });
+    const at = (sessionId: string, performedAt: string) =>
+      parsed({ ...sessionResult, sessionId, performedAt });
     const monday = at("monday", "2026-10-12T08:00:00.000Z");
     const wednesdayFirst = at("wednesday-1", "2026-10-14T08:00:00.000Z");
     const wednesdaySecond = at("wednesday-2", "2026-10-14T08:00:00.000Z");
@@ -135,5 +145,19 @@ describe("Session Result history", () => {
 
     expect(history.list(julia)).toEqual([sessionResult]);
     history.close();
+  });
+
+  it("refuses to list a stored row that is not a Session Result", () => {
+    const directory = mkdtempSync(join(tmpdir(), "rep-counter-"));
+    onTestFinished(() => rmSync(directory, { recursive: true, force: true }));
+    const databasePath = join(directory, "history.sqlite");
+    const history = openSessionResultHistory(databasePath);
+    onTestFinished(() => history.close());
+    history.save(julia, sessionResult);
+    const corrupter = new DatabaseSync(databasePath);
+    corrupter.exec("UPDATE session_results SET reps = -1");
+    corrupter.close();
+
+    expect(() => history.list(julia)).toThrow(/\breps\b/);
   });
 });
