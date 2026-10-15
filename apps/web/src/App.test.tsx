@@ -390,4 +390,60 @@ describe("counting a picked Recording and saving its Session Result", () => {
       screen.queryByRole("button", { name: "Retry" }),
     ).not.toBeInTheDocument();
   });
+
+  it("makes a new Session each time the same file is picked", async () => {
+    const api = stubApi();
+    render(<App />);
+
+    pickRecording(cleanFixture);
+    await screen.findByText("Saved");
+    pickRecording(cleanFixture);
+    await waitFor(() => expect(api.savedBodies()).toHaveLength(2));
+
+    const [first, second] = api.savedBodies() as { sessionId: string }[];
+    expect(first!.sessionId).not.toBe(second!.sessionId);
+  });
+
+  it("discards the current Session when another Patient is chosen, so Retry cannot save it for them", async () => {
+    const api = stubApi({
+      save: () => Promise.reject(new TypeError("Failed to fetch")),
+    });
+    render(<App />);
+    pickRecording(cleanFixture);
+    await screen.findByRole("button", { name: "Retry" });
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Patient" }), {
+      target: { value: "franek" },
+    });
+
+    expect(
+      screen.queryByRole("button", { name: "Retry" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Reps", { selector: "dt" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    await screen.findByText("No Sessions yet");
+    expect(api.savedBodies()).toHaveLength(1);
+  });
+
+  it("drops a save's answer that arrives after another Patient is chosen", async () => {
+    let answerSave: (response: Response) => void = () => {};
+    stubApi({
+      save: () => new Promise<Response>((resolve) => (answerSave = resolve)),
+    });
+    render(<App />);
+    pickRecording(cleanFixture);
+    await screen.findByText("Saving…");
+    fireEvent.change(screen.getByRole("combobox", { name: "Patient" }), {
+      target: { value: "franek" },
+    });
+
+    await act(async () => answerSave(new Response(null, { status: 503 })));
+
+    expect(screen.queryByText("Not saved.")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Reps", { selector: "dt" }),
+    ).not.toBeInTheDocument();
+  });
 });

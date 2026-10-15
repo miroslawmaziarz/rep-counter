@@ -68,6 +68,24 @@ export function App() {
     });
   }
 
+  /** Forgets the shown Session, saved or not, and drops any answer about it. */
+  function discardSession() {
+    shownSessionResult.current = undefined;
+    setSession(undefined);
+    setRefusal(undefined);
+  }
+
+  /**
+   * Another Patient discards the current Session, so a Retry can never save
+   * one Patient's Session into another's history.
+   */
+  function choosePatient(id: string) {
+    const chosen = patients.find((candidate) => candidate.id === id);
+    if (!chosen || chosen.id === patient.id) return;
+    discardSession();
+    setPatient(chosen);
+  }
+
   /** Sends the very same Session Result again, so the server sees a Resend. */
   function retry(failed: Session) {
     setSession({ ...failed, sending: true });
@@ -79,9 +97,7 @@ export function App() {
     // Cleared, so picking the same file again is a new pick.
     event.target.value = "";
     if (!file) return;
-    shownSessionResult.current = undefined;
-    setSession(undefined);
-    setRefusal(undefined);
+    discardSession();
     let json: unknown;
     try {
       json = JSON.parse(await file.text());
@@ -119,11 +135,7 @@ export function App() {
         Patient{" "}
         <select
           value={patient.id}
-          onChange={(event) =>
-            setPatient(
-              patients.find(({ id }) => id === event.target.value) ?? patient,
-            )
-          }
+          onChange={(event) => choosePatient(event.target.value)}
         >
           {patients.map(({ id, name }) => (
             <option key={id} value={id}>
