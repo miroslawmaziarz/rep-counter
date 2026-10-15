@@ -9,7 +9,7 @@ export type SessionResult = {
 };
 
 export type SaveOutcome = {
-  outcome: "saved";
+  outcome: "saved" | "resent";
   sessionResult: SessionResult;
 };
 
@@ -29,7 +29,8 @@ export function openSessionResultHistory(
       session_id   TEXT    NOT NULL,
       reps         INTEGER NOT NULL,
       duration_sec REAL    NOT NULL,
-      performed_at TEXT    NOT NULL
+      performed_at TEXT    NOT NULL,
+      PRIMARY KEY (patient_id, session_id)
     )
   `);
 
@@ -37,6 +38,12 @@ export function openSessionResultHistory(
     INSERT INTO session_results
       (patient_id, session_id, reps, duration_sec, performed_at)
     VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT DO NOTHING
+  `);
+  const selectOne = db.prepare(`
+    SELECT session_id, reps, duration_sec, performed_at
+    FROM session_results
+    WHERE patient_id = ? AND session_id = ?
   `);
   const selectAll = db.prepare(`
     SELECT session_id, reps, duration_sec, performed_at
@@ -46,14 +53,20 @@ export function openSessionResultHistory(
 
   return {
     save(patientId, sessionResult) {
-      insert.run(
+      const { changes } = insert.run(
         patientId,
         sessionResult.sessionId,
         sessionResult.reps,
         sessionResult.durationSec,
         sessionResult.performedAt,
       );
-      return { outcome: "saved", sessionResult };
+      const stored = toSessionResult(
+        selectOne.get(patientId, sessionResult.sessionId)!,
+      );
+      return {
+        outcome: changes === 1 ? "saved" : "resent",
+        sessionResult: stored,
+      };
     },
     list(patientId) {
       return selectAll.all(patientId).map(toSessionResult);

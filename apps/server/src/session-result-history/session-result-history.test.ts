@@ -17,4 +17,14 @@ describe("Session Result history", () => {
     expect(saved).toEqual({ outcome: "saved", sessionResult: squats });
     expect(history.list("julia")).toEqual([squats]);
   });
+
+  it("keeps an identical Resend once and hands back the stored Session Result", () => {
+    const history = openSessionResultHistory(":memory:");
+    history.save("julia", squats);
+
+    const resent = history.save("julia", { ...squats });
+
+    expect(resent).toEqual({ outcome: "resent", sessionResult: squats });
+    expect(history.list("julia")).toEqual([squats]);
+  });
 });
