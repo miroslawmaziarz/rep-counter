@@ -10,6 +10,5 @@ scope:web:
       - any-glob-to-any-file: apps/web/**
 # Only when the PR touches no workspace.
 scope:repo:
-  - all:
-      - changed-files:
-          - all-globs-to-all-files: ["!packages/**", "!apps/**"]
+  - changed-files:
+      - all-globs-to-all-files: ["!packages/**", "!apps/**"]
