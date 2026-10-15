@@ -1,4 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { describe, expect, it, onTestFinished } from "vitest";
 import { openSessionResultHistory, type SessionResult } from "./index";
 
 const squats: SessionResult = {
@@ -96,5 +99,19 @@ describe("Session Result history", () => {
       "tuesday",
       "monday",
     ]);
+  });
+
+  it("keeps Session Results in a database file after it is closed and reopened", () => {
+    const directory = mkdtempSync(join(tmpdir(), "rep-counter-"));
+    onTestFinished(() => rmSync(directory, { recursive: true, force: true }));
+    const databasePath = join(directory, "history.sqlite");
+
+    const before = openSessionResultHistory(databasePath);
+    before.save("julia", squats);
+    before.close();
+    const after = openSessionResultHistory(databasePath);
+
+    expect(after.list("julia")).toEqual([squats]);
+    after.close();
   });
 });
