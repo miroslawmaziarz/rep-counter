@@ -18,6 +18,21 @@ npm test
 
 If port 3000 is taken, run `PORT=3001 npm start`; the API and the web app's proxy both follow `PORT`.
 
+## Patients and tokens
+
+Every request to the API except `GET /health` must send `Authorization: Bearer <token>` for one of the demo Patients. Anything else gets `401`.
+
+| Patient | Token          |
+| ------- | -------------- |
+| Julia   | `julia-token`  |
+| Franek  | `franek-token` |
+
+```sh
+curl -H "Authorization: Bearer julia-token" http://localhost:3000/sessions
+```
+
+These tokens are for the demo only. They are hard-coded in `packages/core/src/patients/patients.json`, and the web app ships every Patient's token to the browser, so anyone with the bundle can act as any Patient. A real deployment would issue tokens at sign-in.
+
 ## Pull requests
 
 Each PR has one scope; the rule is in `AGENTS.md`. The `PR scopes` workflow checks it and sets the PR's `scope:*` label.
