@@ -59,6 +59,24 @@ describe("GET /sessions", () => {
     },
   );
 
+  it("lists only the caller's Session Results, newest performedAt first", async () => {
+    const app = testApp();
+    const older = { ...squats, sessionId: "older" };
+    const newer = {
+      ...squats,
+      sessionId: "newer",
+      performedAt: "2026-10-15T07:00:00.000Z",
+    };
+    await post(app, JULIA, older);
+    await post(app, JULIA, newer);
+    await post(app, FRANEK, { ...squats, sessionId: "franeks" });
+
+    const response = await list(app, JULIA);
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual([newer, older]);
+  });
+
   it("refuses a caller who is not a Patient with one 401 that does not say why", async () => {
     const app = testApp();
     const attempts: Record<string, string>[] = [
