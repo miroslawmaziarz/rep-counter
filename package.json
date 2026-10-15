@@ -11,6 +11,7 @@
   ],
   "scripts": {
     "start": "concurrently --kill-others-on-fail --names server,web --prefix-colors blue,magenta \"npm run dev -w @rep-counter/server\" \"npm run dev -w @rep-counter/web\"",
+    "pr-scope": "node scripts/pr-scope.js",
     "test": "node --test \"scripts/**/*.test.js\" && npm run test --workspaces --if-present",
     "check": "npm run lint && npm run format:check && npm run typecheck && npm run deps",
     "lint": "eslint .",
