@@ -22,4 +22,5 @@ Take-home task: count squat Reps from per-frame Knee Angles and keep each Patien
 - **Test-first** for `core` and the API: write a red test, make it green, then refactor. The Fixtures are the acceptance tests for Rep counting.
 - **Each PR keeps its scope.** Build what its GitHub issue lists and tick its acceptance criteria; record follow-up ideas in the PR body.
 - **Git history is part of the deliverable.** Make small, logical commits on a feature branch and add new commits on top of existing ones.
+- **PR titles name their scopes:** `<scopes>: <Sentence>`, scopes from `core`, `server`, `web` and `repo` (root only, when no workspace changes), alphabetical and comma-separated, e.g. `server, web: Save a Session Result`. PRs are merged with a merge commit, not squashed, so the title becomes the merge message.
 - **Done** means `npm run check` and `npm test` both pass on Node 22 (`.nvmrc`).

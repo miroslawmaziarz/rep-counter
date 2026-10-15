@@ -1,0 +1,31 @@
+name: PR scopes
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+jobs:
+  title:
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Check the title is scoped
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          pattern='^(repo|core(, server)?(, web)?|server(, web)?|web): [A-Z]'
+          if ! printf '%s\n' "$PR_TITLE" | grep -Eq "$pattern"; then
+            echo "::error title=PR title::Expected '<scopes>: <Sentence>' matching $pattern (e.g. 'server, web: Save a Session Result')."
+            printf 'Got: %s\n' "$PR_TITLE"
+            exit 1
+          fi
+
+  labels:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/labeler@v7
+        with:
+          sync-labels: true

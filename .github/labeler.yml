@@ -1,0 +1,14 @@
+# Scope labels for PRs, by the same rules as the PR title scopes (AGENTS.md).
+scope:core:
+  - changed-files:
+      - any-glob-to-any-file: packages/core/**
+scope:server:
+  - changed-files:
+      - any-glob-to-any-file: apps/server/**
+scope:web:
+  - changed-files:
+      - any-glob-to-any-file: apps/web/**
+# Only when the PR touches no workspace.
+scope:repo:
+  - changed-files:
+      - all-globs-to-all-files: ["!packages/**", "!apps/**"]
