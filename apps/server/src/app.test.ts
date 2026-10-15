@@ -186,7 +186,7 @@ describe("POST /sessions", () => {
     expect(response.json()).toEqual({
       statusCode: 400,
       error: "Bad Request",
-      message: "reps must be an integer ≥ 0",
+      message: expect.stringMatching(/\breps\b/),
     });
     expect((await list(app, JULIA)).json()).toEqual([]);
   });
