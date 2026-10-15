@@ -20,7 +20,7 @@ If port 3000 is taken, run `PORT=3001 npm start`; the API and the web app's prox
 
 ## Pull requests
 
-Each PR changes one scope (`core`, `server`, `web`, or `repo` for root files only) and is titled `<scope>: <Sentence>`; see `AGENTS.md`. Check a branch with `npm run pr-scope -- "<title>"`. The `PR scopes` workflow runs the same check and sets the PR's `scope:*` label.
+Each PR has one scope; the rule is in `AGENTS.md`. The `PR scopes` workflow checks it and sets the PR's `scope:*` label.
 
 The check is advisory: branch protection isn't available on this private repository's GitHub plan, so a failing check can't block a merge.
 

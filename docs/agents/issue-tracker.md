@@ -12,7 +12,7 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 - **Apply / remove labels**: `gh issue edit <number> --add-label "..."` / `--remove-label "..."`
 - **Close**: `gh issue close <number> --comment "..."`
 
-**Issues are single-scope.** Each issue targets one of `core`, `server`, `web` or `repo` and ends with "The PR is titled `<scope>: …`". Work that spans layers becomes several issues ordered core → server → web, each `Blocked by` the one before (see **Blocking** below), built as stacked PRs.
+**Issues are single-scope**, as AGENTS.md sets out; link the issues of cross-layer work as in **Blocking** below.
 
 Infer the repo from `git remote -v`; `gh` does this automatically when run inside a clone.
 
