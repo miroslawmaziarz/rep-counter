@@ -24,6 +24,24 @@ describe("parseSessionResult on a valid Session Result", () => {
 
     expect(parsed).toEqual({ ok: true, sessionResult });
   });
+
+  it.each<[string, typeof sessionResult]>([
+    ["reps is 0", { ...sessionResult, reps: 0 }],
+    [
+      "sessionId is 128 chars",
+      { ...sessionResult, sessionId: "s".repeat(128) },
+    ],
+    ["durationSec is a fraction", { ...sessionResult, durationSec: 0.25 }],
+    [
+      "performedAt is in the future",
+      { ...sessionResult, performedAt: "2099-01-01T00:00:00.000Z" },
+    ],
+  ])("accepts it when %s", (_, accepted) => {
+    expect(parseSessionResult(accepted)).toEqual({
+      ok: true,
+      sessionResult: accepted,
+    });
+  });
 });
 
 describe("SessionResult", () => {
@@ -32,5 +50,61 @@ describe("SessionResult", () => {
     const unchecked: SessionResult = { ...sessionResult };
 
     expect(unchecked).toEqual(sessionResult);
+  });
+});
+
+const { sessionId, reps, durationSec, performedAt } = sessionResult;
+
+/** Asserts a refusal with a problem that names `field`. */
+function expectRefused(value: unknown, field: string) {
+  const parsed = parseSessionResult(value);
+
+  expect(parsed.ok).toBe(false);
+  expect(parsed.ok ? [] : parsed.problems).toContainEqual(
+    expect.stringContaining(field),
+  );
+}
+
+describe("parseSessionResult refuses a bad field", () => {
+  it.each<[string, unknown, string]>([
+    ["sessionId is missing", { reps, durationSec, performedAt }, "sessionId"],
+    ["sessionId is empty", { ...sessionResult, sessionId: "" }, "sessionId"],
+    [
+      "sessionId is over 128 chars",
+      { ...sessionResult, sessionId: "s".repeat(129) },
+      "sessionId",
+    ],
+    [
+      "sessionId is not a string",
+      { ...sessionResult, sessionId: 1 },
+      "sessionId",
+    ],
+    ["reps is missing", { sessionId, durationSec, performedAt }, "reps"],
+    ["reps is negative", { ...sessionResult, reps: -1 }, "reps"],
+    ["reps is not an integer", { ...sessionResult, reps: 1.5 }, "reps"],
+    ["reps is a numeric string", { ...sessionResult, reps: "12" }, "reps"],
+    ["durationSec is missing", { sessionId, reps, performedAt }, "durationSec"],
+    [
+      "durationSec is zero",
+      { ...sessionResult, durationSec: 0 },
+      "durationSec",
+    ],
+    [
+      "durationSec is negative",
+      { ...sessionResult, durationSec: -1 },
+      "durationSec",
+    ],
+    [
+      "durationSec is a numeric string",
+      { ...sessionResult, durationSec: "45" },
+      "durationSec",
+    ],
+    [
+      "durationSec is not finite",
+      { ...sessionResult, durationSec: Infinity },
+      "durationSec",
+    ],
+  ])("when %s", (_, value, field) => {
+    expectRefused(value, field);
   });
 });
