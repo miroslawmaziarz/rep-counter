@@ -17,3 +17,13 @@ jobs:
             echo "::error title=PR title::Expected '<scopes>: <Sentence starting with a capital letter>', scopes from core, repo, server, web (e.g. 'server, web: Save a Session Result'). Got: $PR_TITLE"
             exit 1
           fi
+
+  labels:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/labeler@v7
+        with:
+          sync-labels: true
