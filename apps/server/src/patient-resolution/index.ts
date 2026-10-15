@@ -1,5 +1,6 @@
 import { patients, type Patient } from "@rep-counter/core";
 import type { FastifyInstance, FastifyRequest } from "fastify";
+import { httpError } from "../http-error";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -28,7 +29,7 @@ export function resolvePatients(app: FastifyInstance): void {
     if (PUBLIC_URLS.has(request.routeOptions.url ?? "")) return;
 
     const patient = patientFor(request);
-    if (!patient) throw unauthorized();
+    if (!patient) throw httpError(401, "Unauthorized");
     request.patient = patient;
   });
 }
@@ -36,8 +37,4 @@ export function resolvePatients(app: FastifyInstance): void {
 function patientFor(request: FastifyRequest): Patient | undefined {
   const match = /^Bearer (\S+)$/.exec(request.headers.authorization ?? "");
   return match?.[1] === undefined ? undefined : PATIENTS_BY_TOKEN.get(match[1]);
-}
-
-function unauthorized(): Error {
-  return Object.assign(new Error("Unauthorized"), { statusCode: 401 });
 }

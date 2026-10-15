@@ -1,4 +1,5 @@
 import Fastify, { type FastifyInstance } from "fastify";
+import { httpError } from "./http-error";
 import { resolvePatients } from "./patient-resolution";
 import {
   openSessionResultHistory,
@@ -32,7 +33,12 @@ export function buildApp({ databasePath }: AppOptions): FastifyInstance {
         request.patient,
         request.body,
       );
-      if (outcome === "conflict") throw conflict();
+      if (outcome === "conflict") {
+        throw httpError(
+          409,
+          "A different Session Result is already saved for this sessionId",
+        );
+      }
       return reply.code(STATUS_BY_OUTCOME[outcome]).send(sessionResult);
     },
   );
@@ -62,10 +68,3 @@ const SESSION_RESULT_SCHEMA = {
 } as const;
 
 const STATUS_BY_OUTCOME = { saved: 201, resent: 200 } as const;
-
-function conflict(): Error {
-  return Object.assign(
-    new Error("A different Session Result is already saved for this sessionId"),
-    { statusCode: 409 },
-  );
-}
