@@ -27,6 +27,9 @@ type Session = {
   outcome?: SaveOutcome;
 };
 
+/** A picked file that is not a Recording, and why; nothing is sent. */
+type Refusal = { refused: string; problems: string[] };
+
 export function App() {
   const [patient, setPatient] = useState(patients[0]!);
   // One client per Patient token, so nothing is sent under another Patient.
@@ -43,6 +46,7 @@ export function App() {
   // Bumped after a save, to list the history again.
   const [historyVersion, setHistoryVersion] = useState(0);
   const [session, setSession] = useState<Session>();
+  const [refusal, setRefusal] = useState<Refusal>();
   // The Session Result on show, so an answer about an older one is dropped.
   const shownSessionResult = useRef<SessionResult>(undefined);
 
@@ -69,8 +73,24 @@ export function App() {
     // Cleared, so picking the same file again is a new pick.
     event.target.value = "";
     if (!file) return;
-    const parsed = parseRecording(JSON.parse(await file.text()));
-    if (!parsed.ok) return;
+    shownSessionResult.current = undefined;
+    setSession(undefined);
+    setRefusal(undefined);
+    let json: unknown;
+    try {
+      json = JSON.parse(await file.text());
+    } catch {
+      setRefusal({ refused: `${file.name} is not a JSON file.`, problems: [] });
+      return;
+    }
+    const parsed = parseRecording(json);
+    if (!parsed.ok) {
+      setRefusal({
+        refused: `${file.name} is not a Recording:`,
+        problems: parsed.problems,
+      });
+      return;
+    }
     const sessionResult = sessionResultOf(parsed.recording, {
       sessionId: crypto.randomUUID(),
       performedAt: new Date().toISOString(),
@@ -116,6 +136,18 @@ export function App() {
             onChange={(event) => void pick(event)}
           />
         </label>
+        {refusal && (
+          <div role="alert">
+            <p>{refusal.refused}</p>
+            {refusal.problems.length > 0 && (
+              <ul>
+                {refusal.problems.map((problem) => (
+                  <li key={problem}>{problem}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
         {session && <CountedSession session={session} />}
       </section>
       <section aria-labelledby="history-heading">

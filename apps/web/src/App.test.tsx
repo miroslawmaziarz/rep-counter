@@ -269,4 +269,40 @@ describe("counting a picked Recording and saving its Session Result", () => {
     expect(url).toBe("/api/sessions");
     expect(tokenOf(init)).toBe("julia-token");
   });
+
+  it("says a file that is not JSON cannot be read, and sends nothing", async () => {
+    const api = stubApi();
+    render(<App />);
+    await screen.findByText("No Sessions yet");
+
+    pickRecording("not json", "notes.txt");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "notes.txt is not a JSON file",
+    );
+    expect(api.savedBodies()).toEqual([]);
+  });
+
+  it("lists what stops a file being a Recording, and sends nothing", async () => {
+    const api = stubApi();
+    render(<App />);
+    await screen.findByText("No Sessions yet");
+
+    pickRecording(JSON.stringify({ sampleRateHz: 0, angles: [] }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("session-clean.json is not a Recording");
+    expect(
+      within(alert)
+        .getAllByRole("listitem")
+        .map((item) => item.textContent),
+    ).toEqual([
+      "sampleRateHz must be a finite number > 0",
+      "angles must be a non-empty array of finite numbers",
+    ]);
+    expect(
+      screen.queryByText("Reps", { selector: "dt" }),
+    ).not.toBeInTheDocument();
+    expect(api.savedBodies()).toEqual([]);
+  });
 });
