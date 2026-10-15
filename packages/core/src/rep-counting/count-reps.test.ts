@@ -47,3 +47,19 @@ describe("countReps on hand-written Recordings", () => {
     expect(countReps([172, NaN, 90, NaN, 172, NaN])).toBe(1);
   });
 });
+
+describe("countReps with RepThresholds", () => {
+  it("counts the shallow Fixture's half-squats too when deepBelow is 140°", () => {
+    expect(countReps(shallow.angles, { deepBelow: 140 })).toBe(10);
+  });
+
+  it("keeps standingAbove at 160° when only deepBelow is overridden", () => {
+    expect(countReps([172, 120, 161], { deepBelow: 140 })).toBe(1);
+    expect(countReps([172, 120, 160], { deepBelow: 140 })).toBe(0);
+  });
+
+  it("keeps deepBelow at 100° when only standingAbove is overridden", () => {
+    expect(countReps([172, 99, 151], { standingAbove: 150 })).toBe(1);
+    expect(countReps([172, 100, 172], { standingAbove: 150 })).toBe(0);
+  });
+});
