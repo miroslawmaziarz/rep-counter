@@ -16,9 +16,31 @@ label {
   align-items: center;
 }
 
-select {
+select,
+input,
+button {
   font: inherit;
+}
+
+select,
+button {
   padding: 0.25rem 0.5rem;
+}
+
+/* The counted Session: each term beside its value. */
+dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.25rem 1rem;
+}
+
+dt {
+  font-weight: 600;
+}
+
+dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
 }
 
 table {
