@@ -111,18 +111,18 @@ function isStrictDateTime(value: unknown): boolean {
   const match = typeof value === "string" ? DATE_TIME.exec(value) : null;
   if (!match) return false;
   // A `Z` offset leaves the offset groups empty, which reads as 0.
-  const part = (name: string) => Number(match.groups?.[name] ?? 0);
-  const month = part("month");
-  const day = part("day");
+  const groupAsNumber = (name: string) => Number(match.groups?.[name] ?? 0);
+  const month = groupAsNumber("month");
+  const day = groupAsNumber("day");
   return (
     month >= 1 &&
     month <= 12 &&
     day >= 1 &&
-    day <= daysInMonth(part("year"), month) &&
-    part("hour") <= 23 &&
-    part("minute") <= 59 &&
-    part("offsetHour") <= 23 &&
-    part("offsetMinute") <= 59
+    day <= daysInMonth(groupAsNumber("year"), month) &&
+    groupAsNumber("hour") <= 23 &&
+    groupAsNumber("minute") <= 59 &&
+    groupAsNumber("offsetHour") <= 23 &&
+    groupAsNumber("offsetMinute") <= 59
   );
 }
 
