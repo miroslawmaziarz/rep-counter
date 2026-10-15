@@ -61,4 +61,57 @@ describe("listing a Patient's Session Results", () => {
       expect(listed).toEqual({ ok: false, failure: "server" });
     },
   );
+
+  it("returns each Session Result as core parses it, performedAt in UTC", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        Response.json([
+          {
+            sessionId: "s-1",
+            reps: 3,
+            durationSec: 9.5,
+            performedAt: "2026-10-14T11:30:00+02:00",
+          },
+        ]),
+      ),
+    );
+
+    const listed = await sessionResultClient("julia-token").list();
+
+    expect(listed).toEqual({
+      ok: true,
+      sessionResults: [
+        {
+          sessionId: "s-1",
+          reps: 3,
+          durationSec: 9.5,
+          performedAt: "2026-10-14T09:30:00.000Z",
+        },
+      ],
+    });
+  });
+
+  it.each([
+    ["an item is not a Session Result", [{ ...juliasHistory[0], reps: -1 }]],
+    ["an item has an extra field", [{ ...juliasHistory[0], angles: [170] }]],
+    ["the body is not a list", { sessions: juliasHistory }],
+  ])("fails as malformed when %s", async (_, body) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(body)));
+
+    const listed = await sessionResultClient("julia-token").list();
+
+    expect(listed).toEqual({ ok: false, failure: "malformed" });
+  });
+
+  it("fails as malformed when the body is not JSON", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response("<html>oops</html>")),
+    );
+
+    const listed = await sessionResultClient("julia-token").list();
+
+    expect(listed).toEqual({ ok: false, failure: "malformed" });
+  });
 });
