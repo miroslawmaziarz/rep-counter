@@ -52,4 +52,48 @@ describe("a Patient's Session history", () => {
       "Bearer julia-token",
     );
   });
+
+  it("shows the history is loading until the API answers", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockReturnValue(new Promise(() => {})));
+
+    render(<App />);
+
+    expect(await screen.findByText("Loading Sessions…")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  });
+
+  it("says there are no Sessions yet when the history is empty", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json([])));
+
+    render(<App />);
+
+    expect(await screen.findByText("No Sessions yet")).toBeInTheDocument();
+    expect(screen.queryByText("Loading Sessions…")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    [
+      "the API cannot be reached",
+      () => Promise.reject(new TypeError("Failed to fetch")),
+    ],
+    [
+      "the API answers with an error",
+      () => Promise.resolve(new Response(null, { status: 502 })),
+    ],
+    [
+      "the response is malformed",
+      () =>
+        Promise.resolve(Response.json([{ ...juliasHistory[0], reps: "12" }])),
+    ],
+  ])("shows an error when %s", async (_, answer) => {
+    vi.stubGlobal("fetch", vi.fn(answer));
+
+    render(<App />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Could not load the Session history",
+    );
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.queryByText("Loading Sessions…")).not.toBeInTheDocument();
+  });
 });
