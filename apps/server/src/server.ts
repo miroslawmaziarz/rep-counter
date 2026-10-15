@@ -1,7 +1,17 @@
+import { mkdirSync } from "node:fs";
+import { dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { buildApp } from "./app";
 
 const port = Number(process.env.PORT ?? 3000);
-const app = buildApp();
+const databasePath =
+  process.env.DATABASE_PATH ??
+  fileURLToPath(new URL("../data/session-results.sqlite", import.meta.url));
+
+if (databasePath !== ":memory:") {
+  mkdirSync(dirname(databasePath), { recursive: true });
+}
+const app = buildApp({ databasePath });
 
 try {
   await app.listen({ port });
