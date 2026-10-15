@@ -24,6 +24,10 @@ _Avoid_: Angle value, sample
 One squat that counts: the Knee Angle goes below 100°, then comes back above 160°.
 _Avoid_: Repetition, squat (when meaning a counted one), attempt
 
+**Rep Thresholds**:
+The two Knee Angles that define a Rep: `deepBelow` (100° by default) arms it and `standingAbove` (160° by default) completes it; both are strict.
+_Avoid_: Limits, bounds, cut-offs
+
 **Session Result**:
 What is kept about a Session: its `sessionId`, Rep count, duration and when it was performed.
 _Avoid_: Session (for the stored record), summary
