@@ -53,7 +53,7 @@ export type SessionResultClient = {
 export function sessionResultClient(token: string): SessionResultClient {
   return {
     async list() {
-      const sent = await send("/sessions", token);
+      const sent = await send(token);
       if (!sent.ok) return sent;
       if (!sent.response.ok) return { ok: false, failure: "server" };
       const answer = await readJson(sent.response);
@@ -69,7 +69,7 @@ export function sessionResultClient(token: string): SessionResultClient {
     },
 
     async save(sessionResult) {
-      const sent = await send("/sessions", token, {
+      const sent = await send(token, {
         method: "POST",
         body: JSON.stringify(sessionResult),
       });
@@ -84,24 +84,27 @@ export function sessionResultClient(token: string): SessionResultClient {
 
 const MALFORMED = { ok: false, failure: "malformed" } as const;
 
+/** Where the Patient's Session Results live, behind the `/api` proxy. */
+const SESSIONS_URL = "/api/sessions";
+
 /** How long a request may take, body included, before it is a network failure. */
 const TIMEOUT_MS = 10_000;
 
 /**
- * Sends one request to the API, a JSON body when there is one, under the
- * timeout. Never throws: a request that gets no answer is a network failure.
+ * Sends one request to the sessions route, a JSON body when there is one,
+ * under the timeout. Never throws: a request that gets no answer is a
+ * network failure.
  */
 async function send(
-  path: string,
   token: string,
-  { method = "GET", body }: { method?: string; body?: string } = {},
+  { method = "GET", body }: { method?: "GET" | "POST"; body?: string } = {},
 ): Promise<
   { ok: true; response: Response } | { ok: false; failure: "network" }
 > {
   const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
   if (body !== undefined) headers["Content-Type"] = "application/json";
   try {
-    const response = await fetch(`/api${path}`, {
+    const response = await fetch(SESSIONS_URL, {
       method,
       headers,
       body: body ?? null,
