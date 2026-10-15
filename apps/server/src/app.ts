@@ -52,8 +52,11 @@ const SESSION_RESULT_SCHEMA = {
     performedAt: {
       type: "string",
       format: "date-time",
-      // Seconds below 60: a JavaScript Date cannot hold a leap second.
-      pattern: "^\\d{4}-\\d{2}-\\d{2}.\\d{2}:\\d{2}:[0-5]",
+      // Strict RFC 3339, the subset `new Date()` parses exactly: uppercase
+      // `T` and `Z`, seconds below 60 (a Date cannot hold a leap second), at
+      // most millisecond precision, and an offset of `Z` or `±HH:MM`.
+      pattern:
+        "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:[0-5]\\d(\\.\\d{1,3})?(Z|[+-]\\d{2}:\\d{2})$",
     },
   },
 } as const;

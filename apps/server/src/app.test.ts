@@ -185,6 +185,30 @@ describe("POST /sessions", () => {
       { ...squats, performedAt: "2026-10-14T09:30:00" },
     ],
     [
+      "performedAt has a +00 offset",
+      { ...squats, performedAt: "2026-10-14T09:30:00+00" },
+    ],
+    [
+      "performedAt has a +0000 offset",
+      { ...squats, performedAt: "2026-10-14T09:30:00+0000" },
+    ],
+    [
+      "performedAt has a space separator",
+      { ...squats, performedAt: "2026-10-14 09:30:00Z" },
+    ],
+    [
+      "performedAt has a lowercase t",
+      { ...squats, performedAt: "2026-10-14t09:30:00Z" },
+    ],
+    [
+      "performedAt has a lowercase z",
+      { ...squats, performedAt: "2026-10-14T09:30:00z" },
+    ],
+    [
+      "performedAt has over 3 fractional digits",
+      { ...squats, performedAt: "2026-10-14T09:30:00.123456Z" },
+    ],
+    [
       "performedAt is a leap second",
       { ...squats, performedAt: "2026-12-31T23:59:60Z" },
     ],
