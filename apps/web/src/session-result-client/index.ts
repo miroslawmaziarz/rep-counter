@@ -42,12 +42,16 @@ const MALFORMED = { ok: false, failure: "malformed" } as const;
 
 type Answer = { ok: true; body: unknown } | { ok: false; failure: Failure };
 
+/** How long a request may take, body included, before it is a network failure. */
+const TIMEOUT_MS = 10_000;
+
 /** Sends one request to the API and reads its JSON body. Never throws. */
 async function request(path: string, token: string): Promise<Answer> {
   let text: string;
   try {
     const response = await fetch(`/api${path}`, {
       headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(TIMEOUT_MS),
     });
     if (!response.ok) return { ok: false, failure: "server" };
     text = await response.text();

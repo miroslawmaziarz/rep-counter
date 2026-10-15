@@ -2,7 +2,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { sessionResultClient } from ".";
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 const juliasHistory = [
@@ -113,5 +115,59 @@ describe("listing a Patient's Session Results", () => {
     const listed = await sessionResultClient("julia-token").list();
 
     expect(listed).toEqual({ ok: false, failure: "malformed" });
+  });
+
+  describe("a request the API does not answer", () => {
+    /** A fetch that never answers, but rejects as fetch does once aborted. */
+    const hangingFetch = vi.fn(
+      (_url: string, init?: RequestInit) =>
+        new Promise<Response>((_, reject) => {
+          init?.signal?.addEventListener("abort", () =>
+            reject(init.signal?.reason),
+          );
+        }),
+    );
+
+    /**
+     * Fake timers do not reach the platform's own `AbortSignal.timeout`
+     * clock, so it is rebuilt on the faked `setTimeout`.
+     */
+    function useFakeClock() {
+      vi.useFakeTimers();
+      vi.spyOn(AbortSignal, "timeout").mockImplementation((ms) => {
+        const controller = new AbortController();
+        setTimeout(
+          () =>
+            controller.abort(
+              new DOMException("signal timed out", "TimeoutError"),
+            ),
+          ms,
+        );
+        return controller.signal;
+      });
+    }
+
+    it("is still waiting just under 10 s", async () => {
+      useFakeClock();
+      vi.stubGlobal("fetch", hangingFetch);
+
+      let settled = false;
+      void sessionResultClient("julia-token")
+        .list()
+        .then(() => (settled = true));
+      await vi.advanceTimersByTimeAsync(9_999);
+
+      expect(settled).toBe(false);
+    });
+
+    it("fails as a network failure after 10 s", async () => {
+      useFakeClock();
+      vi.stubGlobal("fetch", hangingFetch);
+
+      const listing = sessionResultClient("julia-token").list();
+      await vi.advanceTimersByTimeAsync(10_000);
+
+      expect(await listing).toEqual({ ok: false, failure: "network" });
+    });
   });
 });
