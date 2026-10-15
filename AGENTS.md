@@ -11,7 +11,7 @@ Take-home task: count squat Reps from per-frame Knee Angles and keep each Patien
 - `packages/core`: pure domain code shared by server and web. It stays pure, with no DOM, Node APIs or I/O, so it runs identically in the browser and in Vitest. Consumed as TypeScript source with no build step.
 - `apps/server`: Fastify API. Routes use the brief's paths (`/sessions`, `/health`).
 - `apps/web`: Vite + React. It calls the API under `/api/*`; the Vite proxy strips the prefix.
-- `fixtures/`: sample Recordings, each labelled with its expected Rep count.
+- `packages/core/fixtures/`: sample Recordings, each labelled with its expected Rep count; the acceptance tests for Rep counting.
 - `docs/adr/`: decisions and the reasons behind them. Read them before changing structure.
 - `docs/architecture.md`: the module map. Read it before adding or reshaping a module, and update its row in the same PR.
 
