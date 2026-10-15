@@ -277,6 +277,28 @@ describe("counting a picked Recording and saving its Session Result", () => {
     expect(tokenOf(init)).toBe("julia-token");
   });
 
+  it("takes when the Session was performed at the moment the file is picked, not once it is read", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-15T08:00:00.000Z"));
+    const api = stubApi();
+    render(<App />);
+    let finishReading: (text: string) => void = () => {};
+    const file = new File([], "session-clean.json");
+    file.text = () =>
+      new Promise<string>((resolve) => (finishReading = resolve));
+
+    fireEvent.change(screen.getByLabelText("Recording"), {
+      target: { files: [file] },
+    });
+    vi.setSystemTime(new Date("2026-10-15T08:00:05.000Z"));
+    await act(async () => finishReading(cleanFixture));
+
+    await screen.findByText("Saved");
+    expect(api.savedBodies()).toEqual([
+      expect.objectContaining({ performedAt: "2026-10-15T08:00:00.000Z" }),
+    ]);
+  });
+
   it("says a file that is not JSON cannot be read, and sends nothing", async () => {
     const api = stubApi();
     render(<App />);

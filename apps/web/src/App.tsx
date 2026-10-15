@@ -112,6 +112,8 @@ export function App() {
     if (!file) return;
     discardSession();
     const pick = shownPick.current;
+    // The Session was performed before its file was picked, not once read.
+    const performedAt = new Date().toISOString();
     let json: unknown;
     try {
       json = JSON.parse(await file.text());
@@ -134,7 +136,7 @@ export function App() {
     }
     const sessionResult = sessionResultOf(parsed.recording, {
       sessionId: crypto.randomUUID(),
-      performedAt: new Date().toISOString(),
+      performedAt,
     });
     const picked = {
       pick,
