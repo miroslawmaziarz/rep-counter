@@ -34,4 +34,31 @@ describe("listing a Patient's Session Results", () => {
       "Bearer julia-token",
     );
   });
+
+  it("fails as a network failure when the request does not reach the API", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new TypeError("Failed to fetch")),
+    );
+
+    const listed = await sessionResultClient("julia-token").list();
+
+    expect(listed).toEqual({ ok: false, failure: "network" });
+  });
+
+  it.each([401, 500, 502])(
+    "fails as a server failure when the API answers %i",
+    async (status) => {
+      vi.stubGlobal(
+        "fetch",
+        vi
+          .fn()
+          .mockResolvedValue(Response.json({ message: "nope" }, { status })),
+      );
+
+      const listed = await sessionResultClient("julia-token").list();
+
+      expect(listed).toEqual({ ok: false, failure: "server" });
+    },
+  );
 });
