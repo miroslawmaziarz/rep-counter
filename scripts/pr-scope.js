@@ -26,5 +26,8 @@ export function checkPr(title, files) {
     };
   }
   const scope = workspaces[0] ?? "repo";
-  return { scope, problems: [] };
+  const problems = new RegExp(`^${scope}: [A-Z]`).test(title)
+    ? []
+    : [`Expected the title to be '${scope}: <Sentence>'; got '${title}'.`];
+  return { scope, problems };
 }
