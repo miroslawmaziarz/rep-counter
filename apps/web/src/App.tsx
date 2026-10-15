@@ -247,9 +247,7 @@ function CountedSession({
 }
 
 function isFailure(outcome: SaveOutcome | undefined) {
-  return (
-    outcome === "network" || outcome === "server" || outcome === "malformed"
-  );
+  return outcome === "network" || outcome === "server";
 }
 
 /** The listed history, or its loading, empty or error state. */

@@ -13,14 +13,21 @@ export type ListedSessionResults =
   | { ok: false; failure: Failure };
 
 /**
+ * Why a save may not have happened: it got no answer (`network`), or the
+ * API failed with a 5xx (`server`). Its body is never read, so it cannot be
+ * malformed.
+ */
+export type SaveFailure = Exclude<Failure, "malformed">;
+
+/**
  * What became of a Session Result sent to the API: `saved` covers both a
  * first save and an identical Resend; `conflict` means the Patient already
  * saved different values under its `sessionId`; `refused` means the API
  * turned it down for good (any other 4xx), so sending it again cannot help;
- * a Failure means it may not have been saved, and sending the same Session
- * Result again is safe.
+ * a SaveFailure means it may not have been saved, and sending the same
+ * Session Result again is safe.
  */
-export type SaveOutcome = "saved" | "conflict" | "refused" | Failure;
+export type SaveOutcome = "saved" | "conflict" | "refused" | SaveFailure;
 
 /** Talks to the API on behalf of one Patient, identified by their token. */
 export type SessionResultClient = {
