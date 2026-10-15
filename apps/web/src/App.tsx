@@ -6,7 +6,7 @@ import {
 } from "./session-result-client";
 
 export function App() {
-  const patient = patients[0]!;
+  const [patient, setPatient] = useState(patients[0]!);
   // Kept with the token it was listed for, so another Patient's history
   // reads as still loading rather than as theirs.
   const [history, setHistory] = useState<{
@@ -29,6 +29,23 @@ export function App() {
   return (
     <main>
       <h1>Rep Counter</h1>
+      <label>
+        Patient{" "}
+        <select
+          value={patient.id}
+          onChange={(event) =>
+            setPatient(
+              patients.find(({ id }) => id === event.target.value) ?? patient,
+            )
+          }
+        >
+          {patients.map(({ id, name }) => (
+            <option key={id} value={id}>
+              {name}
+            </option>
+          ))}
+        </select>
+      </label>
       <section aria-labelledby="history-heading">
         <h2 id="history-heading">Sessions</h2>
         <SessionHistory
