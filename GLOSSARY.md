@@ -21,11 +21,11 @@ The angle at the knee in a single frame, in degrees: about 172° standing, about
 _Avoid_: Angle value, sample
 
 **Rep**:
-One squat that counts: the Knee Angle goes below 100°, then comes back above 160°.
+One squat that counts: the Knee Angle goes below the deep Rep Threshold, then back above the standing one (100° and 160° unless set otherwise).
 _Avoid_: Repetition, squat (when meaning a counted one), attempt
 
 **Rep Thresholds**:
-The two Knee Angles that define a Rep: `deepBelow` (100° by default) arms it and `standingAbove` (160° by default) completes it; both are strict.
+The two Knee Angles a Rep is measured against: how deep the squat must go, and how far back up the Patient must stand. The brief's values are 100° and 160°.
 _Avoid_: Limits, bounds, cut-offs
 
 **Session Result**:
