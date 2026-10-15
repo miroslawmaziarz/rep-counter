@@ -1,3 +1,5 @@
+// @ts-check
+
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { scopePr, labelEdits } from "./pr-scope.js";
@@ -38,7 +40,7 @@ describe("scopePr", () => {
 
     assert.equal(result.scope, null);
     assert.equal(result.problems.length, 1);
-    assert.match(result.problems[0], /core, server, web/);
+    assert.match(result.problems[0] ?? "", /core, server, web/);
   });
 
   it("refuses a title whose scope isn't the one the files give", () => {
@@ -50,7 +52,7 @@ describe("scopePr", () => {
 
     assert.equal(result.scope, "server");
     assert.equal(result.problems.length, 1);
-    assert.match(result.problems[0], /server: /);
+    assert.match(result.problems[0] ?? "", /server: /);
   });
 
   it("scopes a PR to a new workspace by its folder name", () => {

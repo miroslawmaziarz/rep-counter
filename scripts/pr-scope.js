@@ -1,3 +1,5 @@
+// @ts-check
+
 // Works out a PR's one scope from its changed files, checks its title against
 // it and, given a PR number, sets the matching scope:* label. See "One scope
 // per PR" in AGENTS.md.
@@ -60,16 +62,26 @@ export function labelEdits(scope, labels) {
   };
 }
 
+/**
+ * @param {string} command
+ * @param {string[]} args
+ */
 function run(command, args) {
   return execFileSync(command, args, { encoding: "utf8" });
 }
 
+/** @param {string} text */
 function lines(text) {
   return text.split("\n").filter(Boolean);
 }
 
-/** Every folder matched by the root package.json `workspaces` globs. */
+/**
+ * Every folder matched by the root package.json `workspaces` globs.
+ *
+ * @returns {string[]}
+ */
 function workspaceDirs() {
+  /** @type {{ workspaces: string[] }} */
   const { workspaces } = JSON.parse(readFileSync("package.json", "utf8"));
   return globSync(workspaces, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
@@ -80,6 +92,10 @@ function workspaceDirs() {
     .sort();
 }
 
+/**
+ * @param {string} pr
+ * @param {string | null} scope
+ */
 function syncLabels(pr, scope) {
   const labels = lines(
     run("gh", ["pr", "view", pr, "--json", "labels", "--jq", ".labels[].name"]),
