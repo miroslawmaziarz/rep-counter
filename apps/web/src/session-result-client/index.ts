@@ -12,6 +12,33 @@ export type ListedSessionResults =
   | { ok: true; sessionResults: SessionResult[] }
   | { ok: false; failure: Failure };
 
+/**
+ * Why a save may not have happened: it got no answer (`network`), or the
+ * API failed with a 5xx (`server`). Its body is never read, so it cannot be
+ * malformed.
+ */
+export type SaveFailure = Exclude<Failure, "malformed">;
+
+/**
+ * What became of a Session Result sent to the API: `saved` covers both a
+ * first save and an identical Resend; `conflict` means the Patient already
+ * saved different values under its `sessionId`; `refused` means the API
+ * turned it down for good (any other 4xx), so sending it again cannot help;
+ * a SaveFailure means it may not have been saved, and sending the same
+ * Session Result again is safe.
+ */
+export type SaveOutcome = "saved" | "conflict" | "refused" | SaveFailure;
+
+/**
+ * Whether sending the same Session Result again may yet save it: true only
+ * for a SaveFailure.
+ */
+export function canResend(
+  outcome: SaveOutcome | undefined,
+): outcome is SaveFailure {
+  return outcome === "network" || outcome === "server";
+}
+
 /** Talks to the API on behalf of one Patient, identified by their token. */
 export type SessionResultClient = {
   /**
@@ -19,12 +46,17 @@ export type SessionResultClient = {
    * core's `parseSessionResult`; one bad item makes the whole list malformed.
    */
   list(): Promise<ListedSessionResults>;
+  /** Saves a Session Result in the Patient's history. Never throws. */
+  save(sessionResult: SessionResult): Promise<SaveOutcome>;
 };
 
 export function sessionResultClient(token: string): SessionResultClient {
   return {
     async list() {
-      const answer = await request("/sessions", token);
+      const sent = await send(token);
+      if (!sent.ok) return sent;
+      if (!sent.response.ok) return { ok: false, failure: "server" };
+      const answer = await readJson(sent.response);
       if (!answer.ok) return answer;
       if (!Array.isArray(answer.body)) return MALFORMED;
       const sessionResults: SessionResult[] = [];
@@ -35,25 +67,61 @@ export function sessionResultClient(token: string): SessionResultClient {
       }
       return { ok: true, sessionResults };
     },
+
+    async save(sessionResult) {
+      const sent = await send(token, {
+        method: "POST",
+        body: JSON.stringify(sessionResult),
+      });
+      if (!sent.ok) return sent.failure;
+      const { status } = sent.response;
+      if (sent.response.ok) return "saved";
+      if (status === 409) return "conflict";
+      return status >= 500 ? "server" : "refused";
+    },
   };
 }
 
 const MALFORMED = { ok: false, failure: "malformed" } as const;
 
-type Answer = { ok: true; body: unknown } | { ok: false; failure: Failure };
+/** Where the Patient's Session Results live, behind the `/api` proxy. */
+const SESSIONS_URL = "/api/sessions";
 
 /** How long a request may take, body included, before it is a network failure. */
 const TIMEOUT_MS = 10_000;
 
-/** Sends one request to the API and reads its JSON body. Never throws. */
-async function request(path: string, token: string): Promise<Answer> {
-  let text: string;
+/**
+ * Sends one request to the sessions route, a JSON body when there is one,
+ * under the timeout. Never throws: a request that gets no answer is a
+ * network failure.
+ */
+async function send(
+  token: string,
+  { method = "GET", body }: { method?: "GET" | "POST"; body?: string } = {},
+): Promise<
+  { ok: true; response: Response } | { ok: false; failure: "network" }
+> {
+  const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
+  if (body !== undefined) headers["Content-Type"] = "application/json";
   try {
-    const response = await fetch(`/api${path}`, {
-      headers: { Authorization: `Bearer ${token}` },
+    const response = await fetch(SESSIONS_URL, {
+      method,
+      headers,
+      body: body ?? null,
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
-    if (!response.ok) return { ok: false, failure: "server" };
+    return { ok: true, response };
+  } catch {
+    return { ok: false, failure: "network" };
+  }
+}
+
+/** Reads a response's JSON body; one cut off by the timeout is a network failure. */
+async function readJson(
+  response: Response,
+): Promise<{ ok: true; body: unknown } | { ok: false; failure: Failure }> {
+  let text: string;
+  try {
     text = await response.text();
   } catch {
     return { ok: false, failure: "network" };

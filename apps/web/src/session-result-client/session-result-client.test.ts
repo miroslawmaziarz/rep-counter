@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { parseSessionResult, type SessionResult } from "@rep-counter/core";
 import { sessionResultClient } from ".";
 
 afterEach(() => {
@@ -169,5 +170,115 @@ describe("listing a Patient's Session Results", () => {
 
       expect(await listing).toEqual({ ok: false, failure: "network" });
     });
+  });
+});
+
+/** A Session Result as core makes it, so `save` can be called with one. */
+function sessionResult(value: unknown): SessionResult {
+  const parsed = parseSessionResult(value);
+  if (!parsed.ok) throw new Error(parsed.problems.join("; "));
+  return parsed.sessionResult;
+}
+
+const todaysSession = sessionResult({
+  sessionId: "s-3",
+  reps: 10,
+  durationSec: 36.3,
+  performedAt: "2026-10-15T08:00:00.000Z",
+});
+
+describe("saving a Session Result", () => {
+  it("posts the Session Result as JSON with the Patient's token, and is saved on 201", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(Response.json(todaysSession, { status: 201 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const saved = await sessionResultClient("julia-token").save(todaysSession);
+
+    expect(saved).toBe("saved");
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/sessions");
+    expect(init.method).toBe("POST");
+    const headers = new Headers(init.headers);
+    expect(headers.get("Authorization")).toBe("Bearer julia-token");
+    expect(headers.get("Content-Type")).toBe("application/json");
+    expect(JSON.parse(init.body as string)).toEqual({
+      sessionId: "s-3",
+      reps: 10,
+      durationSec: 36.3,
+      performedAt: "2026-10-15T08:00:00.000Z",
+    });
+  });
+
+  it("is saved when the API answers 200 to an identical Resend", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(Response.json(todaysSession, { status: 200 })),
+    );
+
+    const saved = await sessionResultClient("julia-token").save(todaysSession);
+
+    expect(saved).toBe("saved");
+  });
+
+  it("is a conflict when the API answers 409", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(
+          Response.json({ message: "conflict" }, { status: 409 }),
+        ),
+    );
+
+    const saved = await sessionResultClient("julia-token").save(todaysSession);
+
+    expect(saved).toBe("conflict");
+  });
+
+  it.each([400, 401, 403, 404, 422])(
+    "is refused, so sending it again cannot help, when the API answers %i",
+    async (status) => {
+      vi.stubGlobal(
+        "fetch",
+        vi
+          .fn()
+          .mockResolvedValue(Response.json({ message: "nope" }, { status })),
+      );
+
+      const saved =
+        await sessionResultClient("julia-token").save(todaysSession);
+
+      expect(saved).toBe("refused");
+    },
+  );
+
+  it.each([500, 502, 503])(
+    "fails as a server failure when the API answers %i",
+    async (status) => {
+      vi.stubGlobal(
+        "fetch",
+        vi
+          .fn()
+          .mockResolvedValue(Response.json({ message: "nope" }, { status })),
+      );
+
+      const saved =
+        await sessionResultClient("julia-token").save(todaysSession);
+
+      expect(saved).toBe("server");
+    },
+  );
+
+  it("fails as a network failure when the request does not reach the API", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new TypeError("Failed to fetch")),
+    );
+
+    const saved = await sessionResultClient("julia-token").save(todaysSession);
+
+    expect(saved).toBe("network");
   });
 });

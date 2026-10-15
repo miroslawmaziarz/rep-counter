@@ -1,30 +1,178 @@
-import { patients, type SessionResult } from "@rep-counter/core";
-import { useEffect, useState } from "react";
 import {
+  parseRecording,
+  patients,
+  sessionResultOf,
+  type Recording,
+  type SessionResult,
+} from "@rep-counter/core";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import {
+  canResend,
   sessionResultClient,
   type ListedSessionResults,
+  type SaveOutcome,
+  type SessionResultClient,
 } from "./session-result-client";
+
+/**
+ * What the page shows of the Session made from the picked Recording: its
+ * count and how saving its Session Result went. It keeps the client of the
+ * Patient it was picked for, so it can only ever be saved to their history.
+ */
+type ShownSession = {
+  /**
+   * A token unique to the pick it was made from. A save's answer carries it
+   * back, and is dropped unless it still matches `shownPick`, so an answer
+   * never lands on a newer pick.
+   */
+  pick: symbol;
+  /** The id of the Patient it was picked for; see `chosenPatientId`. */
+  patientId: string;
+  client: SessionResultClient;
+  recording: Recording;
+  sessionResult: SessionResult;
+  /** Whether a save is in flight. */
+  sending: boolean;
+  /** How the last save ended; none yet while the first is in flight. */
+  outcome?: SaveOutcome;
+};
+
+/** A picked file that is not a Recording, and why; nothing is sent. */
+type Refusal = { refused: string; problems: string[] };
+
+/**
+ * Reads a picked file as a Recording, or says why it is not one: its text
+ * is not JSON, or core's `parseRecording` finds problems. Never throws.
+ */
+async function readRecordingFile(
+  file: File,
+): Promise<
+  { ok: true; recording: Recording } | { ok: false; refusal: Refusal }
+> {
+  let json: unknown;
+  try {
+    json = JSON.parse(await file.text());
+  } catch {
+    return {
+      ok: false,
+      refusal: { refused: `${file.name} is not a JSON file.`, problems: [] },
+    };
+  }
+  const parsed = parseRecording(json);
+  if (!parsed.ok) {
+    return {
+      ok: false,
+      refusal: {
+        refused: `${file.name} is not a Recording:`,
+        problems: parsed.problems,
+      },
+    };
+  }
+  return { ok: true, recording: parsed.recording };
+}
 
 export function App() {
   const [patient, setPatient] = useState(patients[0]!);
+  // One client per Patient token, so nothing is sent under another Patient.
+  const client = useMemo(
+    () => sessionResultClient(patient.token),
+    [patient.token],
+  );
   // Kept with the token it was listed for, so another Patient's history
   // reads as still loading rather than as theirs.
   const [history, setHistory] = useState<{
     token: string;
     listed: ListedSessionResults;
   }>();
+  // Bumped after a save, to list the history again.
+  const [historyVersion, setHistoryVersion] = useState(0);
+  const [session, setSession] = useState<ShownSession>();
+  const [refusal, setRefusal] = useState<Refusal>();
+  // Replaced whenever the shown Session is discarded, so a file read or a
+  // save's answer that arrives for an older pick is dropped.
+  const shownPick = useRef(Symbol("pick"));
+  // The Patient chosen now, so a save answered for an older pick of the same
+  // Patient still lists their history again, and one for another does not.
+  const chosenPatientId = useRef(patient.id);
 
   useEffect(() => {
     let current = true;
-    void sessionResultClient(patient.token)
-      .list()
-      .then((listed) => {
-        if (current) setHistory({ token: patient.token, listed });
-      });
+    void client.list().then((listed) => {
+      if (current) setHistory({ token: patient.token, listed });
+    });
     return () => {
       current = false;
     };
-  }, [patient.token]);
+  }, [client, patient.token, historyVersion]);
+
+  function save({ pick, patientId, client, sessionResult }: ShownSession) {
+    void client.save(sessionResult).then((outcome) => {
+      if (chosenPatientId.current !== patientId) return;
+      if (outcome === "saved") setHistoryVersion((version) => version + 1);
+      if (shownPick.current !== pick) return;
+      setSession((shown) => shown && { ...shown, sending: false, outcome });
+    });
+  }
+
+  /** Forgets the shown Session, saved or not, and drops any answer about it. */
+  function discardSession() {
+    shownPick.current = Symbol("pick");
+    setSession(undefined);
+    setRefusal(undefined);
+  }
+
+  /**
+   * Another Patient discards the current Session, so it can never be resent
+   * into another Patient's history.
+   */
+  function choosePatient(id: string) {
+    const chosen = patients.find((candidate) => candidate.id === id);
+    if (!chosen || chosen.id === patient.id) return;
+    discardSession();
+    chosenPatientId.current = chosen.id;
+    setPatient(chosen);
+  }
+
+  /**
+   * Resends the very same Session Result, so the server sees a Resend. The
+   * button says "Retry"; from the server's side it is a Resend.
+   */
+  function resend(failed: ShownSession) {
+    setSession({ ...failed, sending: true });
+    save(failed);
+  }
+
+  async function pickFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    // Cleared, so picking the same file again is a new pick.
+    event.target.value = "";
+    if (!file) return;
+    discardSession();
+    const pick = shownPick.current;
+    // The Session was performed before its file was picked, not once read.
+    const performedAt = new Date().toISOString();
+    const read = await readRecordingFile(file);
+    // Another Patient chosen, or another file picked, while this one was read.
+    if (shownPick.current !== pick) return;
+    if (!read.ok) {
+      setRefusal(read.refusal);
+      return;
+    }
+    const sessionResult = sessionResultOf(read.recording, {
+      sessionId: crypto.randomUUID(),
+      performedAt,
+    });
+    const picked = {
+      pick,
+      patientId: patient.id,
+      client,
+      recording: read.recording,
+      sessionResult,
+      sending: true,
+    };
+    setSession(picked);
+    save(picked);
+  }
 
   return (
     <main>
@@ -33,11 +181,7 @@ export function App() {
         Patient{" "}
         <select
           value={patient.id}
-          onChange={(event) =>
-            setPatient(
-              patients.find(({ id }) => id === event.target.value) ?? patient,
-            )
-          }
+          onChange={(event) => choosePatient(event.target.value)}
         >
           {patients.map(({ id, name }) => (
             <option key={id} value={id}>
@@ -46,6 +190,32 @@ export function App() {
           ))}
         </select>
       </label>
+      <section aria-labelledby="session-heading">
+        <h2 id="session-heading">New Session</h2>
+        <label>
+          Recording{" "}
+          <input
+            type="file"
+            accept="application/json,.json"
+            onChange={(event) => void pickFile(event)}
+          />
+        </label>
+        {refusal && (
+          <div role="alert">
+            <p>{refusal.refused}</p>
+            {refusal.problems.length > 0 && (
+              <ul>
+                {refusal.problems.map((problem) => (
+                  <li key={problem}>{problem}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+        {session && (
+          <CountedSession session={session} onResend={() => resend(session)} />
+        )}
+      </section>
       <section aria-labelledby="history-heading">
         <h2 id="history-heading">Sessions</h2>
         <SessionHistory
@@ -53,6 +223,50 @@ export function App() {
         />
       </section>
     </main>
+  );
+}
+
+/** The picked Recording's count, and how saving its Session Result went. */
+function CountedSession({
+  session,
+  onResend,
+}: {
+  session: ShownSession;
+  onResend: () => void;
+}) {
+  const { recording, sessionResult, sending, outcome } = session;
+  return (
+    <>
+      <dl>
+        <dt>Reps</dt>
+        <dd>
+          {sessionResult.reps}
+          {recording.expectedReps !== undefined &&
+            ` (expected ${recording.expectedReps})`}
+        </dd>
+        <dt>Duration</dt>
+        <dd>{formatDuration(sessionResult.durationSec)}</dd>
+      </dl>
+      <p role="status">
+        {sending ? "Saving…" : outcome === "saved" && "Saved"}
+      </p>
+      {outcome === "conflict" && (
+        <p role="alert">
+          Not saved: this Session was already saved with different values.
+        </p>
+      )}
+      {outcome === "refused" && (
+        <p role="alert">Not saved: the server refused this Session.</p>
+      )}
+      {canResend(outcome) && (
+        <>
+          <p role="alert">Not saved.</p>
+          <button type="button" disabled={sending} onClick={onResend}>
+            Retry
+          </button>
+        </>
+      )}
+    </>
   );
 }
 
@@ -92,10 +306,15 @@ function SessionTable({ sessionResults }: { sessionResults: SessionResult[] }) {
               </time>
             </td>
             <td>{sessionResult.reps}</td>
-            <td>{sessionResult.durationSec.toFixed(1)} s</td>
+            <td>{formatDuration(sessionResult.durationSec)}</td>
           </tr>
         ))}
       </tbody>
     </table>
   );
+}
+
+/** A Session Result's duration as shown, to a tenth of a second. */
+function formatDuration(durationSec: number) {
+  return `${durationSec.toFixed(1)} s`;
 }

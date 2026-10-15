@@ -1,8 +1,18 @@
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
@@ -190,5 +200,359 @@ describe("a Patient's Session history", () => {
 
     expect(screen.getByText("Loading Sessions…")).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  });
+});
+
+/** A Fixture's file as the README tells a Patient to pick it. */
+const cleanFixture = readFileSync(
+  join(
+    import.meta.dirname,
+    "../../../packages/core/fixtures/session-clean.json",
+  ),
+  "utf8",
+);
+
+/** Feeds a file to the Recording input, as picking it in the browser does. */
+function pickRecording(contents: string, name = "session-clean.json") {
+  fireEvent.change(screen.getByLabelText("Recording"), {
+    target: {
+      files: [new File([contents], name, { type: "application/json" })],
+    },
+  });
+}
+
+/** The value shown for a term of the counted Session, such as "Reps". */
+function counted(term: string) {
+  return screen.getByText(term, { selector: "dt" }).nextElementSibling
+    ?.textContent;
+}
+
+type Route = (init: RequestInit) => Promise<Response>;
+
+/**
+ * A fetch that answers a listing with `history` and a save with `save`,
+ * recording every request it gets.
+ */
+function stubApi({
+  history = () => Promise.resolve(Response.json([])),
+  save = () => Promise.resolve(Response.json({}, { status: 201 })),
+}: { history?: Route; save?: Route } = {}) {
+  const fetchMock = vi.fn((_url: string, init: RequestInit = {}) =>
+    init.method === "POST" ? save(init) : history(init),
+  );
+  vi.stubGlobal("fetch", fetchMock);
+  return {
+    fetchMock,
+    /** The bodies of every save, parsed. */
+    savedBodies: () =>
+      fetchMock.mock.calls
+        .filter(([, init]) => init?.method === "POST")
+        .map(([, init]) => JSON.parse(init?.body as string) as unknown),
+  };
+}
+
+describe("counting a picked Recording and saving its Session Result", () => {
+  it("shows a Fixture's Reps, duration and expected Reps, and saves only its Session Result", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-15T08:00:00.000Z"));
+    const api = stubApi();
+    render(<App />);
+
+    pickRecording(cleanFixture);
+
+    expect(await screen.findByText("Saved")).toBeInTheDocument();
+    expect(counted("Reps")).toBe("10 (expected 10)");
+    expect(counted("Duration")).toBe("36.3 s");
+    const [body] = api.savedBodies();
+    expect(body).toEqual({
+      sessionId: expect.stringMatching(/^[0-9a-f-]{36}$/),
+      reps: 10,
+      durationSec: 1088 / 30,
+      performedAt: "2026-10-15T08:00:00.000Z",
+    });
+    const [url, init] = api.fetchMock.mock.calls.find(
+      ([, init]) => init?.method === "POST",
+    )!;
+    expect(url).toBe("/api/sessions");
+    expect(tokenOf(init)).toBe("julia-token");
+  });
+
+  it("takes when the Session was performed at the moment the file is picked, not once it is read", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-15T08:00:00.000Z"));
+    const api = stubApi();
+    render(<App />);
+    let finishReading: (text: string) => void = () => {};
+    const file = new File([], "session-clean.json");
+    file.text = () =>
+      new Promise<string>((resolve) => (finishReading = resolve));
+
+    fireEvent.change(screen.getByLabelText("Recording"), {
+      target: { files: [file] },
+    });
+    vi.setSystemTime(new Date("2026-10-15T08:00:05.000Z"));
+    await act(async () => finishReading(cleanFixture));
+
+    await screen.findByText("Saved");
+    expect(api.savedBodies()).toEqual([
+      expect.objectContaining({ performedAt: "2026-10-15T08:00:00.000Z" }),
+    ]);
+  });
+
+  it("says a file that is not JSON cannot be read, and sends nothing", async () => {
+    const api = stubApi();
+    render(<App />);
+    await screen.findByText("No Sessions yet");
+
+    pickRecording("not json", "notes.txt");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "notes.txt is not a JSON file",
+    );
+    expect(api.savedBodies()).toEqual([]);
+  });
+
+  it("lists what stops a file being a Recording, and sends nothing", async () => {
+    const api = stubApi();
+    render(<App />);
+    await screen.findByText("No Sessions yet");
+
+    pickRecording(JSON.stringify({ sampleRateHz: 0, angles: [] }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("session-clean.json is not a Recording");
+    expect(
+      within(alert)
+        .getAllByRole("listitem")
+        .map((item) => item.textContent),
+    ).toEqual([
+      "sampleRateHz must be a finite number > 0",
+      "angles must be a non-empty array of finite numbers",
+    ]);
+    expect(
+      screen.queryByText("Reps", { selector: "dt" }),
+    ).not.toBeInTheDocument();
+    expect(api.savedBodies()).toEqual([]);
+  });
+
+  it("shows a failed save as not saved, and Retry resends the same Session Result until it is saved", async () => {
+    const answers = [
+      () => Promise.reject(new TypeError("Failed to fetch")),
+      () => Promise.resolve(new Response(null, { status: 503 })),
+      () => Promise.resolve(Response.json({}, { status: 200 })),
+    ];
+    let listings = 0;
+    const api = stubApi({
+      history: () => {
+        listings += 1;
+        return Promise.resolve(
+          Response.json(listings > 1 ? juliasHistory : []),
+        );
+      },
+      save: () => answers.shift()!(),
+    });
+    render(<App />);
+    await screen.findByText("No Sessions yet");
+    pickRecording(cleanFixture);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Not saved");
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Retry" })).toBeEnabled(),
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent("Not saved");
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+    expect(await screen.findByText("Saved")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Retry" }),
+    ).not.toBeInTheDocument();
+    const [first, ...resends] = api.savedBodies();
+    expect(resends).toEqual([first, first]);
+    expect(
+      await screen.findByRole("table", { name: "Session history" }),
+    ).toBeInTheDocument();
+  });
+
+  it("disables Retry while a send is in flight", async () => {
+    let answerRetry: (response: Response) => void = () => {};
+    const answers = [
+      () => Promise.reject(new TypeError("Failed to fetch")),
+      () => new Promise<Response>((resolve) => (answerRetry = resolve)),
+    ];
+    const api = stubApi({ save: () => answers.shift()!() });
+    render(<App />);
+    pickRecording(cleanFixture);
+    const retry = await screen.findByRole("button", { name: "Retry" });
+
+    fireEvent.click(retry);
+
+    expect(retry).toBeDisabled();
+    fireEvent.click(retry);
+    expect(api.savedBodies()).toHaveLength(2);
+    await act(async () => answerRetry(Response.json({}, { status: 201 })));
+    expect(await screen.findByText("Saved")).toBeInTheDocument();
+  });
+
+  it("says a conflicting Session Result was refused, with no Retry", async () => {
+    stubApi({
+      save: () =>
+        Promise.resolve(
+          Response.json({ message: "conflict" }, { status: 409 }),
+        ),
+    });
+    render(<App />);
+
+    pickRecording(cleanFixture);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Not saved: this Session was already saved with different values.",
+    );
+    expect(
+      screen.queryByRole("button", { name: "Retry" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("says a Session Result the API refuses was not saved, with no Retry", async () => {
+    stubApi({
+      save: () =>
+        Promise.resolve(Response.json({ message: "nope" }, { status: 400 })),
+    });
+    render(<App />);
+
+    pickRecording(cleanFixture);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Not saved: the server refused this Session.",
+    );
+    expect(
+      screen.queryByRole("button", { name: "Retry" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("makes a new Session each time the same file is picked", async () => {
+    const api = stubApi();
+    render(<App />);
+
+    pickRecording(cleanFixture);
+    await screen.findByText("Saved");
+    pickRecording(cleanFixture);
+    await waitFor(() => expect(api.savedBodies()).toHaveLength(2));
+
+    const [first, second] = api.savedBodies() as { sessionId: string }[];
+    expect(first!.sessionId).not.toBe(second!.sessionId);
+  });
+
+  it("discards the current Session when another Patient is chosen, so Retry cannot save it for them", async () => {
+    const api = stubApi({
+      save: () => Promise.reject(new TypeError("Failed to fetch")),
+    });
+    render(<App />);
+    pickRecording(cleanFixture);
+    await screen.findByRole("button", { name: "Retry" });
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Patient" }), {
+      target: { value: "franek" },
+    });
+
+    expect(
+      screen.queryByRole("button", { name: "Retry" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Reps", { selector: "dt" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    await screen.findByText("No Sessions yet");
+    expect(api.savedBodies()).toHaveLength(1);
+  });
+
+  it("drops a save's answer that arrives after another Patient is chosen", async () => {
+    let answerSave: (response: Response) => void = () => {};
+    stubApi({
+      save: () => new Promise<Response>((resolve) => (answerSave = resolve)),
+    });
+    render(<App />);
+    pickRecording(cleanFixture);
+    await screen.findByText("Saving…");
+    fireEvent.change(screen.getByRole("combobox", { name: "Patient" }), {
+      target: { value: "franek" },
+    });
+
+    await act(async () => answerSave(new Response(null, { status: 503 })));
+
+    expect(screen.queryByText("Not saved.")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Reps", { selector: "dt" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("lists the history again when an older pick is saved after a newer one", async () => {
+    let answerFirst: (response: Response) => void = () => {};
+    const answers = [
+      () => new Promise<Response>((resolve) => (answerFirst = resolve)),
+      () => new Promise<Response>(() => {}),
+    ];
+    let listings = 0;
+    stubApi({
+      history: () => {
+        listings += 1;
+        return Promise.resolve(
+          Response.json(listings > 1 ? juliasHistory : []),
+        );
+      },
+      save: () => answers.shift()!(),
+    });
+    render(<App />);
+    await screen.findByText("No Sessions yet");
+    pickRecording(cleanFixture);
+    await screen.findByText("Saving…");
+    pickRecording(cleanFixture);
+    await waitFor(() => expect(answers).toHaveLength(0));
+
+    await act(async () => answerFirst(Response.json({}, { status: 201 })));
+
+    expect(
+      await screen.findByRole("table", { name: "Session history" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Saving…")).toBeInTheDocument();
+  });
+
+  it("does not list the history again when a save is answered after another Patient is chosen", async () => {
+    let answerSave: (response: Response) => void = () => {};
+    const api = stubApi({
+      save: () => new Promise<Response>((resolve) => (answerSave = resolve)),
+    });
+    render(<App />);
+    pickRecording(cleanFixture);
+    await screen.findByText("Saving…");
+    fireEvent.change(screen.getByRole("combobox", { name: "Patient" }), {
+      target: { value: "franek" },
+    });
+    await screen.findByText("No Sessions yet");
+    const listings = () =>
+      api.fetchMock.mock.calls.filter(([, init]) => init?.method !== "POST")
+        .length;
+    const before = listings();
+
+    await act(async () => answerSave(Response.json({}, { status: 201 })));
+
+    expect(listings()).toBe(before);
+  });
+
+  it("drops a pick whose file is still being read when another Patient is chosen", async () => {
+    const api = stubApi();
+    render(<App />);
+
+    pickRecording(cleanFixture);
+    fireEvent.change(screen.getByRole("combobox", { name: "Patient" }), {
+      target: { value: "franek" },
+    });
+    await screen.findByText("No Sessions yet");
+    await act(async () => {});
+
+    expect(
+      screen.queryByText("Reps", { selector: "dt" }),
+    ).not.toBeInTheDocument();
+    expect(api.savedBodies()).toEqual([]);
   });
 });
