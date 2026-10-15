@@ -4,7 +4,7 @@ Take-home task for Physitrack MoCap. A patient does squats in front of a camera,
 
 Stack: Node, TypeScript, React.
 
-> **Status:** the workspace, tooling and app shells are in place: the web app shows whether the API is reachable. Rep counting and the Session Result API and history are not yet added.
+> **Status:** core counts Reps and validates Session Results, the API saves and lists each Patient's Session Results, and the web app shows the chosen Patient's history. Counting a Recording in the web app is not yet added.
 
 ## Getting started
 
