@@ -15,10 +15,12 @@ export type ListedSessionResults =
 /**
  * What became of a Session Result sent to the API: `saved` covers both a
  * first save and an identical Resend; `conflict` means the Patient already
- * saved different values under its `sessionId`; a Failure means it may not
- * have been saved, and sending the same Session Result again is safe.
+ * saved different values under its `sessionId`; `refused` means the API
+ * turned it down for good (any other 4xx), so sending it again cannot help;
+ * a Failure means it may not have been saved, and sending the same Session
+ * Result again is safe.
  */
-export type SaveOutcome = "saved" | "conflict" | Failure;
+export type SaveOutcome = "saved" | "conflict" | "refused" | Failure;
 
 /** Talks to the API on behalf of one Patient, identified by their token. */
 export type SessionResultClient = {
@@ -55,8 +57,10 @@ export function sessionResultClient(token: string): SessionResultClient {
         body: JSON.stringify(sessionResult),
       });
       if (!sent.ok) return sent.failure;
-      if (sent.response.status === 409) return "conflict";
-      return sent.response.ok ? "saved" : "server";
+      const { status } = sent.response;
+      if (sent.response.ok) return "saved";
+      if (status === 409) return "conflict";
+      return status >= 500 ? "server" : "refused";
     },
   };
 }

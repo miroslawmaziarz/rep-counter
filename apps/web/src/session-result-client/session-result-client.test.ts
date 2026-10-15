@@ -237,7 +237,24 @@ describe("saving a Session Result", () => {
     expect(saved).toBe("conflict");
   });
 
-  it.each([400, 401, 500, 503])(
+  it.each([400, 401, 403, 404, 422])(
+    "is refused, so sending it again cannot help, when the API answers %i",
+    async (status) => {
+      vi.stubGlobal(
+        "fetch",
+        vi
+          .fn()
+          .mockResolvedValue(Response.json({ message: "nope" }, { status })),
+      );
+
+      const saved =
+        await sessionResultClient("julia-token").save(todaysSession);
+
+      expect(saved).toBe("refused");
+    },
+  );
+
+  it.each([500, 502, 503])(
     "fails as a server failure when the API answers %i",
     async (status) => {
       vi.stubGlobal(

@@ -221,6 +221,9 @@ function CountedSession({
           Not saved: this Session was already saved with different values.
         </p>
       )}
+      {outcome === "refused" && (
+        <p role="alert">Not saved: the server refused this Session.</p>
+      )}
       {isFailure(outcome) && (
         <>
           <p role="alert">Not saved.</p>

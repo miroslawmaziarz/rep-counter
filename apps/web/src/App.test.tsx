@@ -391,6 +391,23 @@ describe("counting a picked Recording and saving its Session Result", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("says a Session Result the API refuses was not saved, with no Retry", async () => {
+    stubApi({
+      save: () =>
+        Promise.resolve(Response.json({ message: "nope" }, { status: 400 })),
+    });
+    render(<App />);
+
+    pickRecording(cleanFixture);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Not saved: the server refused this Session.",
+    );
+    expect(
+      screen.queryByRole("button", { name: "Retry" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("makes a new Session each time the same file is picked", async () => {
     const api = stubApi();
     render(<App />);
