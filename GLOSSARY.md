@@ -32,6 +32,10 @@ _Avoid_: Limits, bounds, cut-offs
 What is kept about a Session: its `sessionId`, Rep count, duration and when it was performed.
 _Avoid_: Session (for the stored record), summary
 
+**Resend**:
+A Session Result sent again for a `sessionId` the Patient has already saved; it is saved once. A conflicting Resend carries different values and is refused.
+_Avoid_: Duplicate, retry (for the arriving copy)
+
 **Fixture**:
 A sample Recording shipped with the repo, labelled with the Rep count it should produce.
 _Avoid_: Test session, sample file
