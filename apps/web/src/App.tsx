@@ -18,6 +18,8 @@ import {
  * Patient it was picked for, so it can only ever be saved to their history.
  */
 type Session = {
+  /** The pick it was made from; see `shownPick`. */
+  pick: symbol;
   client: SessionResultClient;
   recording: Recording;
   sessionResult: SessionResult;
@@ -26,6 +28,9 @@ type Session = {
   /** How the last save ended; none yet while the first is in flight. */
   outcome?: SaveOutcome;
 };
+
+/** Stands for a file whose text does not parse as JSON. */
+const NOT_JSON = Symbol("not JSON");
 
 /** A picked file that is not a Recording, and why; nothing is sent. */
 type Refusal = { refused: string; problems: string[] };
@@ -47,8 +52,9 @@ export function App() {
   const [historyVersion, setHistoryVersion] = useState(0);
   const [session, setSession] = useState<Session>();
   const [refusal, setRefusal] = useState<Refusal>();
-  // The Session Result on show, so an answer about an older one is dropped.
-  const shownSessionResult = useRef<SessionResult>(undefined);
+  // Replaced whenever the shown Session is discarded, so a file read or a
+  // save's answer that arrives for an older pick is dropped.
+  const shownPick = useRef(Symbol("pick"));
 
   useEffect(() => {
     let current = true;
@@ -60,9 +66,9 @@ export function App() {
     };
   }, [client, patient.token, historyVersion]);
 
-  function save({ client, sessionResult }: Session) {
+  function save({ pick, client, sessionResult }: Session) {
     void client.save(sessionResult).then((outcome) => {
-      if (shownSessionResult.current !== sessionResult) return;
+      if (shownPick.current !== pick) return;
       setSession((shown) => shown && { ...shown, sending: false, outcome });
       if (outcome === "saved") setHistoryVersion((version) => version + 1);
     });
@@ -70,7 +76,7 @@ export function App() {
 
   /** Forgets the shown Session, saved or not, and drops any answer about it. */
   function discardSession() {
-    shownSessionResult.current = undefined;
+    shownPick.current = Symbol("pick");
     setSession(undefined);
     setRefusal(undefined);
   }
@@ -92,16 +98,22 @@ export function App() {
     save(failed);
   }
 
-  async function pick(event: ChangeEvent<HTMLInputElement>) {
+  async function pickFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     // Cleared, so picking the same file again is a new pick.
     event.target.value = "";
     if (!file) return;
     discardSession();
+    const pick = shownPick.current;
     let json: unknown;
     try {
       json = JSON.parse(await file.text());
     } catch {
+      json = NOT_JSON;
+    }
+    // Another Patient chosen, or another file picked, while this one was read.
+    if (shownPick.current !== pick) return;
+    if (json === NOT_JSON) {
       setRefusal({ refused: `${file.name} is not a JSON file.`, problems: [] });
       return;
     }
@@ -118,12 +130,12 @@ export function App() {
       performedAt: new Date().toISOString(),
     });
     const picked = {
+      pick,
       client,
       recording: parsed.recording,
       sessionResult,
       sending: true,
     };
-    shownSessionResult.current = sessionResult;
     setSession(picked);
     save(picked);
   }
@@ -151,7 +163,7 @@ export function App() {
           <input
             type="file"
             accept="application/json,.json"
-            onChange={(event) => void pick(event)}
+            onChange={(event) => void pickFile(event)}
           />
         </label>
         {refusal && (

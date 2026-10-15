@@ -446,4 +446,21 @@ describe("counting a picked Recording and saving its Session Result", () => {
       screen.queryByText("Reps", { selector: "dt" }),
     ).not.toBeInTheDocument();
   });
+
+  it("drops a pick whose file is still being read when another Patient is chosen", async () => {
+    const api = stubApi();
+    render(<App />);
+
+    pickRecording(cleanFixture);
+    fireEvent.change(screen.getByRole("combobox", { name: "Patient" }), {
+      target: { value: "franek" },
+    });
+    await screen.findByText("No Sessions yet");
+    await act(async () => {});
+
+    expect(
+      screen.queryByText("Reps", { selector: "dt" }),
+    ).not.toBeInTheDocument();
+    expect(api.savedBodies()).toEqual([]);
+  });
 });
