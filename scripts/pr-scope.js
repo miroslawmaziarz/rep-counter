@@ -8,27 +8,25 @@
 // against its own base. --base defaults to origin/main.
 
 import { execFileSync } from "node:child_process";
+import { globSync, readFileSync } from "node:fs";
+import path from "node:path";
 import process from "node:process";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
-
-const WORKSPACES = {
-  core: "packages/core/",
-  server: "apps/server/",
-  web: "apps/web/",
-};
 
 const LABEL_PREFIX = "scope:";
 
 /**
  * @param {string} title
  * @param {string[]} files paths changed by the PR, relative to the repo root
+ * @param {string[]} workspaceDirs the workspace folders, relative to the repo
+ *   root; each one's scope is its folder name
  * @returns {{ scope: string | null, problems: string[] }}
  */
-export function checkPr(title, files) {
-  const workspaces = Object.entries(WORKSPACES)
-    .filter(([, dir]) => files.some((file) => file.startsWith(dir)))
-    .map(([name]) => name);
+export function checkPr(title, files, workspaceDirs) {
+  const workspaces = workspaceDirs
+    .filter((dir) => files.some((file) => file.startsWith(`${dir}/`)))
+    .map((dir) => path.posix.basename(dir));
   if (workspaces.length > 1) {
     return {
       scope: null,
@@ -68,6 +66,18 @@ function run(command, args) {
 
 function lines(text) {
   return text.split("\n").filter(Boolean);
+}
+
+/** Every folder matched by the root package.json `workspaces` globs. */
+function workspaceDirs() {
+  const { workspaces } = JSON.parse(readFileSync("package.json", "utf8"));
+  return globSync(workspaces, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) =>
+      path.relative(process.cwd(), path.join(entry.parentPath, entry.name)),
+    )
+    .map((dir) => dir.split(path.sep).join("/"))
+    .sort();
 }
 
 function syncLabels(pr, scope) {
@@ -115,7 +125,7 @@ function main() {
   const files = lines(
     run("git", ["diff", "--name-only", `${values.base}...HEAD`]),
   );
-  const { scope, problems } = checkPr(title, files);
+  const { scope, problems } = checkPr(title, files, workspaceDirs());
   if (values.pr !== undefined) syncLabels(values.pr, scope);
 
   const errorPrefix = process.env.GITHUB_ACTIONS ? "::error::" : "";
