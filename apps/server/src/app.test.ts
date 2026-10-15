@@ -5,7 +5,7 @@ import { buildApp } from "./app";
 const JULIA = "julia-token";
 const FRANEK = "franek-token";
 
-const squats = {
+const sessionResult = {
   sessionId: "session-1",
   reps: 12,
   durationSec: 45.5,
@@ -61,15 +61,15 @@ describe("GET /sessions", () => {
 
   it("lists only the caller's Session Results, newest performedAt first", async () => {
     const app = testApp();
-    const older = { ...squats, sessionId: "older" };
+    const older = { ...sessionResult, sessionId: "older" };
     const newer = {
-      ...squats,
+      ...sessionResult,
       sessionId: "newer",
       performedAt: "2026-10-15T07:00:00.000Z",
     };
     await post(app, JULIA, older);
     await post(app, JULIA, newer);
-    await post(app, FRANEK, { ...squats, sessionId: "franeks" });
+    await post(app, FRANEK, { ...sessionResult, sessionId: "franeks" });
 
     const response = await list(app, JULIA);
 
@@ -108,112 +108,124 @@ describe("POST /sessions", () => {
   it("saves a Session Result and returns it with 201", async () => {
     const app = testApp();
 
-    const response = await post(app, JULIA, squats);
+    const response = await post(app, JULIA, sessionResult);
 
     expect(response.statusCode).toBe(201);
-    expect(response.json()).toEqual(squats);
-    expect((await list(app, JULIA)).json()).toEqual([squats]);
+    expect(response.json()).toEqual(sessionResult);
+    expect((await list(app, JULIA)).json()).toEqual([sessionResult]);
   });
 
   it("answers an identical Resend with 200 and the stored Session Result, and keeps it once", async () => {
     const app = testApp();
-    await post(app, JULIA, squats);
+    await post(app, JULIA, sessionResult);
 
-    const response = await post(app, JULIA, squats);
+    const response = await post(app, JULIA, sessionResult);
 
     expect(response.statusCode).toBe(200);
-    expect(response.json()).toEqual(squats);
-    expect((await list(app, JULIA)).json()).toEqual([squats]);
+    expect(response.json()).toEqual(sessionResult);
+    expect((await list(app, JULIA)).json()).toEqual([sessionResult]);
   });
 
   it("treats performedAt in +00:00 and Z for the same instant as an identical Resend", async () => {
     const app = testApp();
     await post(app, JULIA, {
-      ...squats,
+      ...sessionResult,
       performedAt: "2026-10-14T09:30:00+00:00",
     });
 
-    const response = await post(app, JULIA, squats);
+    const response = await post(app, JULIA, sessionResult);
 
     expect(response.statusCode).toBe(200);
-    expect(response.json()).toEqual(squats);
+    expect(response.json()).toEqual(sessionResult);
   });
 
   it("refuses a conflicting Resend with 409 and keeps the original values", async () => {
     const app = testApp();
-    await post(app, JULIA, squats);
+    await post(app, JULIA, sessionResult);
 
-    const response = await post(app, JULIA, { ...squats, reps: 13 });
+    const response = await post(app, JULIA, { ...sessionResult, reps: 13 });
 
     expect(response.statusCode).toBe(409);
     expect(response.json()).toMatchObject({ statusCode: 409 });
-    expect((await list(app, JULIA)).json()).toEqual([squats]);
+    expect((await list(app, JULIA)).json()).toEqual([sessionResult]);
   });
 
   it("lets Julia and Franek each save the same sessionId and see only their own", async () => {
     const app = testApp();
-    const franeks = { ...squats, reps: 3 };
+    const franeks = { ...sessionResult, reps: 3 };
 
-    const julias = await post(app, JULIA, squats);
+    const julias = await post(app, JULIA, sessionResult);
     const franekResponse = await post(app, FRANEK, franeks);
 
     expect(julias.statusCode).toBe(201);
     expect(franekResponse.statusCode).toBe(201);
-    expect((await list(app, JULIA)).json()).toEqual([squats]);
+    expect((await list(app, JULIA)).json()).toEqual([sessionResult]);
     expect((await list(app, FRANEK)).json()).toEqual([franeks]);
   });
 
-  const { sessionId, reps, durationSec, performedAt } = squats;
+  const { sessionId, reps, durationSec, performedAt } = sessionResult;
   it.each<[string, unknown]>([
     ["sessionId is missing", { reps, durationSec, performedAt }],
-    ["sessionId is empty", { ...squats, sessionId: "" }],
-    ["sessionId is over 128 chars", { ...squats, sessionId: "s".repeat(129) }],
-    ["sessionId is not a string", { ...squats, sessionId: 1 }],
+    ["sessionId is empty", { ...sessionResult, sessionId: "" }],
+    [
+      "sessionId is over 128 chars",
+      { ...sessionResult, sessionId: "s".repeat(129) },
+    ],
+    ["sessionId is not a string", { ...sessionResult, sessionId: 1 }],
     ["reps is missing", { sessionId, durationSec, performedAt }],
-    ["reps is negative", { ...squats, reps: -1 }],
-    ["reps is not an integer", { ...squats, reps: 1.5 }],
-    ["reps is a numeric string", { ...squats, reps: "12" }],
+    ["reps is negative", { ...sessionResult, reps: -1 }],
+    ["reps is not an integer", { ...sessionResult, reps: 1.5 }],
+    ["reps is a numeric string", { ...sessionResult, reps: "12" }],
     ["durationSec is missing", { sessionId, reps, performedAt }],
-    ["durationSec is zero", { ...squats, durationSec: 0 }],
-    ["durationSec is negative", { ...squats, durationSec: -1 }],
-    ["durationSec is a numeric string", { ...squats, durationSec: "45" }],
+    ["durationSec is zero", { ...sessionResult, durationSec: 0 }],
+    ["durationSec is negative", { ...sessionResult, durationSec: -1 }],
+    [
+      "durationSec is a numeric string",
+      { ...sessionResult, durationSec: "45" },
+    ],
     ["performedAt is missing", { sessionId, reps, durationSec }],
-    ["performedAt is not a date", { ...squats, performedAt: "yesterday" }],
-    ["performedAt has no time", { ...squats, performedAt: "2026-10-14" }],
+    [
+      "performedAt is not a date",
+      { ...sessionResult, performedAt: "yesterday" },
+    ],
+    [
+      "performedAt has no time",
+      { ...sessionResult, performedAt: "2026-10-14" },
+    ],
     [
       "performedAt has no offset",
-      { ...squats, performedAt: "2026-10-14T09:30:00" },
+      { ...sessionResult, performedAt: "2026-10-14T09:30:00" },
     ],
     [
       "performedAt has a +00 offset",
-      { ...squats, performedAt: "2026-10-14T09:30:00+00" },
+      { ...sessionResult, performedAt: "2026-10-14T09:30:00+00" },
     ],
     [
       "performedAt has a +0000 offset",
-      { ...squats, performedAt: "2026-10-14T09:30:00+0000" },
+      { ...sessionResult, performedAt: "2026-10-14T09:30:00+0000" },
     ],
     [
       "performedAt has a space separator",
-      { ...squats, performedAt: "2026-10-14 09:30:00Z" },
+      { ...sessionResult, performedAt: "2026-10-14 09:30:00Z" },
     ],
     [
       "performedAt has a lowercase t",
-      { ...squats, performedAt: "2026-10-14t09:30:00Z" },
+      { ...sessionResult, performedAt: "2026-10-14t09:30:00Z" },
     ],
     [
       "performedAt has a lowercase z",
-      { ...squats, performedAt: "2026-10-14T09:30:00z" },
+      { ...sessionResult, performedAt: "2026-10-14T09:30:00z" },
     ],
     [
       "performedAt has over 3 fractional digits",
-      { ...squats, performedAt: "2026-10-14T09:30:00.123456Z" },
+      { ...sessionResult, performedAt: "2026-10-14T09:30:00.123456Z" },
     ],
     [
       "performedAt is a leap second",
-      { ...squats, performedAt: "2026-12-31T23:59:60Z" },
+      { ...sessionResult, performedAt: "2026-12-31T23:59:60Z" },
     ],
-    ["there is an extra field", { ...squats, patientId: "franek" }],
-    ["the body is an array", [squats]],
+    ["there is an extra field", { ...sessionResult, patientId: "franek" }],
+    ["the body is an array", [sessionResult]],
   ])("refuses with 400 and saves nothing when %s", async (_, payload) => {
     const app = testApp();
 
@@ -227,21 +239,24 @@ describe("POST /sessions", () => {
     expect((await list(app, JULIA)).json()).toEqual([]);
   });
 
-  it.each<[string, typeof squats]>([
-    ["reps is 0", { ...squats, reps: 0 }],
-    ["sessionId is 128 chars", { ...squats, sessionId: "s".repeat(128) }],
-    ["durationSec is a fraction", { ...squats, durationSec: 0.25 }],
+  it.each<[string, typeof sessionResult]>([
+    ["reps is 0", { ...sessionResult, reps: 0 }],
+    [
+      "sessionId is 128 chars",
+      { ...sessionResult, sessionId: "s".repeat(128) },
+    ],
+    ["durationSec is a fraction", { ...sessionResult, durationSec: 0.25 }],
     [
       "performedAt is in the future",
-      { ...squats, performedAt: "2099-01-01T00:00:00.000Z" },
+      { ...sessionResult, performedAt: "2099-01-01T00:00:00.000Z" },
     ],
-  ])("saves a Session Result when %s", async (_, sessionResult) => {
+  ])("saves a Session Result when %s", async (_, accepted) => {
     const app = testApp();
 
-    const response = await post(app, JULIA, sessionResult);
+    const response = await post(app, JULIA, accepted);
 
     expect(response.statusCode).toBe(201);
-    expect(response.json()).toEqual(sessionResult);
+    expect(response.json()).toEqual(accepted);
   });
 
   it("refuses a caller who is not a Patient with 401", async () => {
@@ -250,7 +265,7 @@ describe("POST /sessions", () => {
     const response = await app.inject({
       method: "POST",
       url: "/sessions",
-      payload: squats,
+      payload: sessionResult,
     });
 
     expect(response.statusCode).toBe(401);

@@ -14,7 +14,7 @@ function patientNamed(name: string): Patient {
   return patient;
 }
 
-const squats: SessionResult = {
+const sessionResult: SessionResult = {
   sessionId: "session-1",
   reps: 12,
   durationSec: 45.5,
@@ -25,20 +25,20 @@ describe("Session Result history", () => {
   it("saves a Session Result and lists it for its Patient", () => {
     const history = openSessionResultHistory(":memory:");
 
-    const saved = history.save(julia, squats);
+    const saved = history.save(julia, sessionResult);
 
-    expect(saved).toEqual({ outcome: "saved", sessionResult: squats });
-    expect(history.list(julia)).toEqual([squats]);
+    expect(saved).toEqual({ outcome: "saved", sessionResult });
+    expect(history.list(julia)).toEqual([sessionResult]);
   });
 
   it("keeps an identical Resend once and hands back the stored Session Result", () => {
     const history = openSessionResultHistory(":memory:");
-    history.save(julia, squats);
+    history.save(julia, sessionResult);
 
-    const resent = history.save(julia, { ...squats });
+    const resent = history.save(julia, { ...sessionResult });
 
-    expect(resent).toEqual({ outcome: "resent", sessionResult: squats });
-    expect(history.list(julia)).toEqual([squats]);
+    expect(resent).toEqual({ outcome: "resent", sessionResult });
+    expect(history.list(julia)).toEqual([sessionResult]);
   });
 
   it.each<[string, Partial<SessionResult>]>([
@@ -49,24 +49,24 @@ describe("Session Result history", () => {
     "refuses a Resend with different %s and keeps the original",
     (_, change) => {
       const history = openSessionResultHistory(":memory:");
-      history.save(julia, squats);
+      history.save(julia, sessionResult);
 
-      const resent = history.save(julia, { ...squats, ...change });
+      const resent = history.save(julia, { ...sessionResult, ...change });
 
-      expect(resent).toEqual({ outcome: "conflict", sessionResult: squats });
-      expect(history.list(julia)).toEqual([squats]);
+      expect(resent).toEqual({ outcome: "conflict", sessionResult });
+      expect(history.list(julia)).toEqual([sessionResult]);
     },
   );
 
   it("keeps each Patient's sessionIds apart", () => {
     const history = openSessionResultHistory(":memory:");
-    const franeks = { ...squats, reps: 3 };
+    const franeks = { ...sessionResult, reps: 3 };
 
-    history.save(julia, squats);
+    history.save(julia, sessionResult);
     const saved = history.save(franek, franeks);
 
     expect(saved.outcome).toBe("saved");
-    expect(history.list(julia)).toEqual([squats]);
+    expect(history.list(julia)).toEqual([sessionResult]);
     expect(history.list(franek)).toEqual([franeks]);
   });
 
@@ -74,23 +74,23 @@ describe("Session Result history", () => {
     const history = openSessionResultHistory(":memory:");
 
     const saved = history.save(julia, {
-      ...squats,
+      ...sessionResult,
       performedAt: "2026-10-14T11:30:00+02:00",
     });
     const resent = history.save(julia, {
-      ...squats,
+      ...sessionResult,
       performedAt: "2026-10-14T09:30:00+00:00",
     });
 
-    expect(saved).toEqual({ outcome: "saved", sessionResult: squats });
-    expect(resent).toEqual({ outcome: "resent", sessionResult: squats });
-    expect(history.list(julia)).toEqual([squats]);
+    expect(saved).toEqual({ outcome: "saved", sessionResult });
+    expect(resent).toEqual({ outcome: "resent", sessionResult });
+    expect(history.list(julia)).toEqual([sessionResult]);
   });
 
   it("lists newest performedAt first, and same-instant Session Results in save order", () => {
     const history = openSessionResultHistory(":memory:");
     const at = (sessionId: string, performedAt: string) => ({
-      ...squats,
+      ...sessionResult,
       sessionId,
       performedAt,
     });
@@ -117,11 +117,11 @@ describe("Session Result history", () => {
     const databasePath = join(directory, "history.sqlite");
 
     const before = openSessionResultHistory(databasePath);
-    before.save(julia, squats);
+    before.save(julia, sessionResult);
     before.close();
     const after = openSessionResultHistory(databasePath);
 
-    expect(after.list(julia)).toEqual([squats]);
+    expect(after.list(julia)).toEqual([sessionResult]);
     after.close();
   });
 
@@ -131,9 +131,9 @@ describe("Session Result history", () => {
     const databasePath = join(directory, "not", "yet", "history.sqlite");
 
     const history = openSessionResultHistory(databasePath);
-    history.save(julia, squats);
+    history.save(julia, sessionResult);
 
-    expect(history.list(julia)).toEqual([squats]);
+    expect(history.list(julia)).toEqual([sessionResult]);
     history.close();
   });
 });
