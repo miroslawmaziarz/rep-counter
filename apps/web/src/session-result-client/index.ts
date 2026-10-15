@@ -55,7 +55,8 @@ export function sessionResultClient(token: string): SessionResultClient {
         body: JSON.stringify(sessionResult),
       });
       if (!sent.ok) return sent.failure;
-      return "saved";
+      if (sent.response.status === 409) return "conflict";
+      return sent.response.ok ? "saved" : "server";
     },
   };
 }

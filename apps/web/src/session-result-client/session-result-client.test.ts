@@ -210,4 +210,58 @@ describe("saving a Session Result", () => {
       performedAt: "2026-10-15T08:00:00.000Z",
     });
   });
+
+  it("is saved when the API answers 200 to an identical Resend", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(Response.json(todaysSession, { status: 200 })),
+    );
+
+    const saved = await sessionResultClient("julia-token").save(todaysSession);
+
+    expect(saved).toBe("saved");
+  });
+
+  it("is a conflict when the API answers 409", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(
+          Response.json({ message: "conflict" }, { status: 409 }),
+        ),
+    );
+
+    const saved = await sessionResultClient("julia-token").save(todaysSession);
+
+    expect(saved).toBe("conflict");
+  });
+
+  it.each([400, 401, 500, 503])(
+    "fails as a server failure when the API answers %i",
+    async (status) => {
+      vi.stubGlobal(
+        "fetch",
+        vi
+          .fn()
+          .mockResolvedValue(Response.json({ message: "nope" }, { status })),
+      );
+
+      const saved =
+        await sessionResultClient("julia-token").save(todaysSession);
+
+      expect(saved).toBe("server");
+    },
+  );
+
+  it("fails as a network failure when the request does not reach the API", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new TypeError("Failed to fetch")),
+    );
+
+    const saved = await sessionResultClient("julia-token").save(todaysSession);
+
+    expect(saved).toBe("network");
+  });
 });
