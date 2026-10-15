@@ -1,9 +1,16 @@
+import { patients } from "@rep-counter/core";
 import type { FastifyInstance } from "fastify";
 import { describe, expect, it, onTestFinished } from "vitest";
 import { buildApp } from "./app";
 
-const JULIA = "julia-token";
-const FRANEK = "franek-token";
+const JULIA = tokenOf("Julia");
+const FRANEK = tokenOf("Franek");
+
+function tokenOf(name: string): string {
+  const patient = patients.find((candidate) => candidate.name === name);
+  if (!patient) throw new Error(`No Patient named ${name}`);
+  return patient.token;
+}
 
 const sessionResult = {
   sessionId: "session-1",
@@ -81,7 +88,7 @@ describe("GET /sessions", () => {
     const app = testApp();
     const attempts: Record<string, string>[] = [
       {},
-      { authorization: "Basic julia-token" },
+      { authorization: `Basic ${JULIA}` },
       { authorization: "Bearer" },
       { authorization: "Bearer stranger-token" },
     ];
