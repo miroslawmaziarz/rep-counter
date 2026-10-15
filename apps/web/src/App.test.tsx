@@ -1,8 +1,11 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
@@ -190,5 +193,80 @@ describe("a Patient's Session history", () => {
 
     expect(screen.getByText("Loading Sessions…")).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  });
+});
+
+/** A Fixture's file as the README tells a Patient to pick it. */
+const cleanFixture = readFileSync(
+  join(
+    import.meta.dirname,
+    "../../../packages/core/fixtures/session-clean.json",
+  ),
+  "utf8",
+);
+
+/** Feeds a file to the Recording input, as picking it in the browser does. */
+function pickRecording(contents: string, name = "session-clean.json") {
+  fireEvent.change(screen.getByLabelText("Recording"), {
+    target: {
+      files: [new File([contents], name, { type: "application/json" })],
+    },
+  });
+}
+
+/** The value shown for a term of the counted Session, such as "Reps". */
+function counted(term: string) {
+  return screen.getByText(term, { selector: "dt" }).nextElementSibling
+    ?.textContent;
+}
+
+type Route = (init: RequestInit) => Promise<Response>;
+
+/**
+ * A fetch that answers a listing with `history` and a save with `save`,
+ * recording every request it gets.
+ */
+function stubApi({
+  history = () => Promise.resolve(Response.json([])),
+  save = () => Promise.resolve(Response.json({}, { status: 201 })),
+}: { history?: Route; save?: Route } = {}) {
+  const fetchMock = vi.fn((_url: string, init: RequestInit = {}) =>
+    init.method === "POST" ? save(init) : history(init),
+  );
+  vi.stubGlobal("fetch", fetchMock);
+  return {
+    fetchMock,
+    /** The bodies of every save, parsed. */
+    savedBodies: () =>
+      fetchMock.mock.calls
+        .filter(([, init]) => init?.method === "POST")
+        .map(([, init]) => JSON.parse(init?.body as string) as unknown),
+  };
+}
+
+describe("counting a picked Recording and saving its Session Result", () => {
+  it("shows a Fixture's Reps, duration and expected Reps, and saves only its Session Result", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-15T08:00:00.000Z"));
+    const api = stubApi();
+    render(<App />);
+
+    pickRecording(cleanFixture);
+
+    expect(await screen.findByText("Saved")).toBeInTheDocument();
+    expect(counted("Reps")).toBe("10 (expected 10)");
+    expect(counted("Duration")).toBe("36.3 s");
+    const [body] = api.savedBodies();
+    expect(body).toEqual({
+      sessionId: expect.stringMatching(/^[0-9a-f-]{36}$/),
+      reps: 10,
+      durationSec: 1088 / 30,
+      performedAt: "2026-10-15T08:00:00.000Z",
+    });
+    const [url, init] = api.fetchMock.mock.calls.find(
+      ([, init]) => init?.method === "POST",
+    )!;
+    expect(url).toBe("/api/sessions");
+    expect(tokenOf(init)).toBe("julia-token");
   });
 });
