@@ -29,7 +29,7 @@ The two Knee Angles a Rep is measured against: how deep the squat must go, and h
 _Avoid_: Limits, bounds, cut-offs
 
 **Session Result**:
-What is kept about a Session: its `sessionId`, Rep count, duration and when it was performed.
+What is kept about a Session: its `sessionId`, Rep count, duration (the length of its whole Recording) and when it was performed. A Session with no Reps is still kept.
 _Avoid_: Session (for the stored record), summary
 
 **Resend**:
