@@ -143,7 +143,7 @@ describe("a Patient's Session history", () => {
 
     expect(await screen.findByText("20.0 s")).toBeInTheDocument();
     expect(historyRows()).toEqual([
-      [expect.stringContaining("9:00"), "7", "20.0 s"],
+      [expect.stringContaining("7:00"), "7", "20.0 s"],
     ]);
     expect(tokenOf(fetchMock.mock.calls.at(-1)?.[1])).toBe("franek-token");
   });
@@ -167,7 +167,7 @@ describe("a Patient's Session history", () => {
     await act(async () => answerJulia(Response.json(juliasHistory)));
 
     expect(historyRows()).toEqual([
-      [expect.stringContaining("9:00"), "7", "20.0 s"],
+      [expect.stringContaining("7:00"), "7", "20.0 s"],
     ]);
   });
 
