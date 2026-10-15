@@ -464,6 +464,59 @@ describe("counting a picked Recording and saving its Session Result", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("lists the history again when an older pick is saved after a newer one", async () => {
+    let answerFirst: (response: Response) => void = () => {};
+    const answers = [
+      () => new Promise<Response>((resolve) => (answerFirst = resolve)),
+      () => new Promise<Response>(() => {}),
+    ];
+    let listings = 0;
+    stubApi({
+      history: () => {
+        listings += 1;
+        return Promise.resolve(
+          Response.json(listings > 1 ? juliasHistory : []),
+        );
+      },
+      save: () => answers.shift()!(),
+    });
+    render(<App />);
+    await screen.findByText("No Sessions yet");
+    pickRecording(cleanFixture);
+    await screen.findByText("Saving…");
+    pickRecording(cleanFixture);
+    await waitFor(() => expect(answers).toHaveLength(0));
+
+    await act(async () => answerFirst(Response.json({}, { status: 201 })));
+
+    expect(
+      await screen.findByRole("table", { name: "Session history" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Saving…")).toBeInTheDocument();
+  });
+
+  it("does not list the history again when a save is answered after another Patient is chosen", async () => {
+    let answerSave: (response: Response) => void = () => {};
+    const api = stubApi({
+      save: () => new Promise<Response>((resolve) => (answerSave = resolve)),
+    });
+    render(<App />);
+    pickRecording(cleanFixture);
+    await screen.findByText("Saving…");
+    fireEvent.change(screen.getByRole("combobox", { name: "Patient" }), {
+      target: { value: "franek" },
+    });
+    await screen.findByText("No Sessions yet");
+    const listings = () =>
+      api.fetchMock.mock.calls.filter(([, init]) => init?.method !== "POST")
+        .length;
+    const before = listings();
+
+    await act(async () => answerSave(Response.json({}, { status: 201 })));
+
+    expect(listings()).toBe(before);
+  });
+
   it("drops a pick whose file is still being read when another Patient is chosen", async () => {
     const api = stubApi();
     render(<App />);

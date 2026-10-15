@@ -20,6 +20,8 @@ import {
 type Session = {
   /** The pick it was made from; see `shownPick`. */
   pick: symbol;
+  /** The id of the Patient it was picked for; see `chosenPatientId`. */
+  patientId: string;
   client: SessionResultClient;
   recording: Recording;
   sessionResult: SessionResult;
@@ -55,6 +57,9 @@ export function App() {
   // Replaced whenever the shown Session is discarded, so a file read or a
   // save's answer that arrives for an older pick is dropped.
   const shownPick = useRef(Symbol("pick"));
+  // The Patient chosen now, so a save answered for an older pick of the same
+  // Patient still lists their history again, and one for another does not.
+  const chosenPatientId = useRef(patient.id);
 
   useEffect(() => {
     let current = true;
@@ -66,11 +71,12 @@ export function App() {
     };
   }, [client, patient.token, historyVersion]);
 
-  function save({ pick, client, sessionResult }: Session) {
+  function save({ pick, patientId, client, sessionResult }: Session) {
     void client.save(sessionResult).then((outcome) => {
+      if (chosenPatientId.current !== patientId) return;
+      if (outcome === "saved") setHistoryVersion((version) => version + 1);
       if (shownPick.current !== pick) return;
       setSession((shown) => shown && { ...shown, sending: false, outcome });
-      if (outcome === "saved") setHistoryVersion((version) => version + 1);
     });
   }
 
@@ -89,6 +95,7 @@ export function App() {
     const chosen = patients.find((candidate) => candidate.id === id);
     if (!chosen || chosen.id === patient.id) return;
     discardSession();
+    chosenPatientId.current = chosen.id;
     setPatient(chosen);
   }
 
@@ -131,6 +138,7 @@ export function App() {
     });
     const picked = {
       pick,
+      patientId: patient.id,
       client,
       recording: parsed.recording,
       sessionResult,
