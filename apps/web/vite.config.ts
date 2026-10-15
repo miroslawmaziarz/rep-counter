@@ -19,6 +19,8 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
+    // Pinned to UTC so local times read the same on every machine and in CI.
+    env: { TZ: "UTC" },
     setupFiles: ["./src/test-setup.ts"],
   },
 });
