@@ -187,6 +187,34 @@ describe("POST /sessions", () => {
     expect((await list(app, JULIA)).json()).toEqual([]);
   });
 
+  it.each<[string, string]>([
+    ["an array", JSON.stringify([sessionResult])],
+    ["null", "null"],
+    ["a string", JSON.stringify("session-1")],
+  ])(
+    "refuses a body that is %s with 400, and saves nothing",
+    async (_, body) => {
+      const app = testApp();
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/sessions",
+        headers: {
+          authorization: `Bearer ${JULIA}`,
+          "content-type": "application/json",
+        },
+        payload: body,
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toMatchObject({
+        statusCode: 400,
+        error: "Bad Request",
+      });
+      expect((await list(app, JULIA)).json()).toEqual([]);
+    },
+  );
+
   it("refuses a caller who is not a Patient with 401", async () => {
     const app = testApp();
 
