@@ -16,6 +16,15 @@ export function checkPr(title, files) {
   const workspaces = Object.entries(WORKSPACES)
     .filter(([, dir]) => files.some((file) => file.startsWith(dir)))
     .map(([name]) => name);
+  if (workspaces.length > 1) {
+    return {
+      scope: null,
+      problems: [
+        `The PR changes ${workspaces.length} workspaces (${workspaces.join(", ")}); ` +
+          "a PR may change only one. Split it with expand-contract (AGENTS.md).",
+      ],
+    };
+  }
   const scope = workspaces[0] ?? "repo";
   return { scope, problems: [] };
 }
