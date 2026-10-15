@@ -104,6 +104,77 @@ describe("parseSessionResult refuses a bad field", () => {
       { ...sessionResult, durationSec: Infinity },
       "durationSec",
     ],
+    ["performedAt is missing", { sessionId, reps, durationSec }, "performedAt"],
+    [
+      "performedAt is not a string",
+      { ...sessionResult, performedAt: 0 },
+      "performedAt",
+    ],
+    [
+      "performedAt is not a date",
+      { ...sessionResult, performedAt: "yesterday" },
+      "performedAt",
+    ],
+    [
+      "performedAt has no time",
+      { ...sessionResult, performedAt: "2026-10-14" },
+      "performedAt",
+    ],
+    [
+      "performedAt has no offset",
+      { ...sessionResult, performedAt: "2026-10-14T09:30:00" },
+      "performedAt",
+    ],
+    [
+      "performedAt has a +00 offset",
+      { ...sessionResult, performedAt: "2026-10-14T09:30:00+00" },
+      "performedAt",
+    ],
+    [
+      "performedAt has a +0000 offset",
+      { ...sessionResult, performedAt: "2026-10-14T09:30:00+0000" },
+      "performedAt",
+    ],
+    [
+      "performedAt has a space separator",
+      { ...sessionResult, performedAt: "2026-10-14 09:30:00Z" },
+      "performedAt",
+    ],
+    [
+      "performedAt has a lowercase t",
+      { ...sessionResult, performedAt: "2026-10-14t09:30:00Z" },
+      "performedAt",
+    ],
+    [
+      "performedAt has a lowercase z",
+      { ...sessionResult, performedAt: "2026-10-14T09:30:00z" },
+      "performedAt",
+    ],
+    [
+      "performedAt has over 3 fractional digits",
+      { ...sessionResult, performedAt: "2026-10-14T09:30:00.123456Z" },
+      "performedAt",
+    ],
+    [
+      "performedAt is a leap second",
+      { ...sessionResult, performedAt: "2026-12-31T23:59:60Z" },
+      "performedAt",
+    ],
+    [
+      "performedAt is a day the month does not have",
+      { ...sessionResult, performedAt: "2026-02-30T09:30:00Z" },
+      "performedAt",
+    ],
+    [
+      "performedAt is hour 24",
+      { ...sessionResult, performedAt: "2026-10-14T24:00:00Z" },
+      "performedAt",
+    ],
+    [
+      "performedAt has an offset beyond 23:59",
+      { ...sessionResult, performedAt: "2026-10-14T09:30:00+24:00" },
+      "performedAt",
+    ],
   ])("when %s", (_, value, field) => {
     expectRefused(value, field);
   });

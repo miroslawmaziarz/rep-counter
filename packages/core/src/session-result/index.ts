@@ -63,4 +63,44 @@ const FIELD_RULES: Record<string, FieldRule> = {
     requirement: "must be a finite number > 0",
     isValid: (value) => Number.isFinite(value) && (value as number) > 0,
   },
+  performedAt: {
+    requirement:
+      "must be an RFC 3339 date-time with a Z or ±HH:MM offset, e.g. 2026-10-14T09:30:00.000Z",
+    isValid: isStrictDateTime,
+  },
 };
+
+/**
+ * Strict RFC 3339, the subset `new Date()` parses exactly: uppercase `T` and
+ * `Z`, seconds below 60 (a Date cannot hold a leap second), at most
+ * millisecond precision, and an offset of `Z` or `±HH:MM`.
+ */
+const DATE_TIME =
+  /^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})T(?<hour>\d{2}):(?<minute>\d{2}):[0-5]\d(?:\.\d{1,3})?(?:Z|[+-](?<offsetHour>\d{2}):(?<offsetMinute>\d{2}))$/;
+
+/** Matches `DATE_TIME`, then refuses the dates and times no calendar has. */
+function isStrictDateTime(value: unknown): boolean {
+  const match = typeof value === "string" ? DATE_TIME.exec(value) : null;
+  if (!match) return false;
+  // A `Z` offset leaves the offset groups empty, which reads as 0.
+  const part = (name: string) => Number(match.groups?.[name] ?? 0);
+  const month = part("month");
+  const day = part("day");
+  return (
+    month >= 1 &&
+    month <= 12 &&
+    day >= 1 &&
+    day <= daysInMonth(part("year"), month) &&
+    part("hour") <= 23 &&
+    part("minute") <= 59 &&
+    part("offsetHour") <= 23 &&
+    part("offsetMinute") <= 59
+  );
+}
+
+function daysInMonth(year: number, month: number): number {
+  const isLeapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  return [31, isLeapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][
+    month - 1
+  ]!;
+}
