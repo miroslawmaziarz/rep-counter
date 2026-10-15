@@ -222,7 +222,7 @@ function CountedSession({
             ` (expected ${recording.expectedReps})`}
         </dd>
         <dt>Duration</dt>
-        <dd>{sessionResult.durationSec.toFixed(1)} s</dd>
+        <dd>{formatDuration(sessionResult.durationSec)}</dd>
       </dl>
       <p role="status">
         {sending ? "Saving…" : outcome === "saved" && "Saved"}
@@ -283,10 +283,15 @@ function SessionTable({ sessionResults }: { sessionResults: SessionResult[] }) {
               </time>
             </td>
             <td>{sessionResult.reps}</td>
-            <td>{sessionResult.durationSec.toFixed(1)} s</td>
+            <td>{formatDuration(sessionResult.durationSec)}</td>
           </tr>
         ))}
       </tbody>
     </table>
   );
+}
+
+/** A Session Result's duration as shown, to a tenth of a second. */
+function formatDuration(durationSec: number) {
+  return `${durationSec.toFixed(1)} s`;
 }
