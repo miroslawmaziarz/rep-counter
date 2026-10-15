@@ -52,7 +52,11 @@ export function openSessionResultHistory(
   `);
 
   return {
-    save(patientId, sessionResult) {
+    save(patientId, received) {
+      const sessionResult = {
+        ...received,
+        performedAt: new Date(received.performedAt).toISOString(),
+      };
       const { changes } = insert.run(
         patientId,
         sessionResult.sessionId,

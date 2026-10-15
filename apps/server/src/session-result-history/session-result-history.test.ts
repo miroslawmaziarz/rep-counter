@@ -56,4 +56,21 @@ describe("Session Result history", () => {
     expect(history.list("julia")).toEqual([squats]);
     expect(history.list("franek")).toEqual([franeks]);
   });
+
+  it("stores performedAt in UTC, so the same instant in another offset is an identical Resend", () => {
+    const history = openSessionResultHistory(":memory:");
+
+    const saved = history.save("julia", {
+      ...squats,
+      performedAt: "2026-10-14T11:30:00+02:00",
+    });
+    const resent = history.save("julia", {
+      ...squats,
+      performedAt: "2026-10-14T09:30:00+00:00",
+    });
+
+    expect(saved).toEqual({ outcome: "saved", sessionResult: squats });
+    expect(resent).toEqual({ outcome: "resent", sessionResult: squats });
+    expect(history.list("julia")).toEqual([squats]);
+  });
 });
