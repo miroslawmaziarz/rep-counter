@@ -1,3 +1,4 @@
+import type { Patient } from "@rep-counter/core";
 import { DatabaseSync } from "node:sqlite";
 
 /** What is kept about a Session. */
@@ -22,9 +23,9 @@ export type SaveOutcome = {
 
 /** Each Patient's Session Results, saved once per `(Patient, sessionId)`. */
 export type SessionResultHistory = {
-  save(patientId: string, sessionResult: SessionResult): SaveOutcome;
+  save(patient: Patient, sessionResult: SessionResult): SaveOutcome;
   /** The Patient's Session Results, newest `performedAt` first, ties in save order. */
-  list(patientId: string): SessionResult[];
+  list(patient: Patient): SessionResult[];
   close(): void;
 };
 
@@ -67,20 +68,20 @@ export function openSessionResultHistory(
   `);
 
   return {
-    save(patientId, received) {
+    save(patient, received) {
       const sessionResult = {
         ...received,
         performedAt: new Date(received.performedAt).toISOString(),
       };
       const { changes } = insert.run(
-        patientId,
+        patient.id,
         sessionResult.sessionId,
         sessionResult.reps,
         sessionResult.durationSec,
         sessionResult.performedAt,
       );
       const stored = toSessionResult(
-        selectOne.get(patientId, sessionResult.sessionId)!,
+        selectOne.get(patient.id, sessionResult.sessionId)!,
       );
       if (changes === 1) return { outcome: "saved", sessionResult: stored };
       return {
@@ -88,8 +89,8 @@ export function openSessionResultHistory(
         sessionResult: stored,
       };
     },
-    list(patientId) {
-      return selectAll.all(patientId).map(toSessionResult);
+    list(patient) {
+      return selectAll.all(patient.id).map(toSessionResult);
     },
     close() {
       db.close();

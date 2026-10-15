@@ -2,7 +2,17 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, onTestFinished } from "vitest";
+import { patients, type Patient } from "@rep-counter/core";
 import { openSessionResultHistory, type SessionResult } from "./index";
+
+const julia = patientNamed("Julia");
+const franek = patientNamed("Franek");
+
+function patientNamed(name: string): Patient {
+  const patient = patients.find((candidate) => candidate.name === name);
+  if (!patient) throw new Error(`No Patient named ${name}`);
+  return patient;
+}
 
 const squats: SessionResult = {
   sessionId: "session-1",
@@ -15,20 +25,20 @@ describe("Session Result history", () => {
   it("saves a Session Result and lists it for its Patient", () => {
     const history = openSessionResultHistory(":memory:");
 
-    const saved = history.save("julia", squats);
+    const saved = history.save(julia, squats);
 
     expect(saved).toEqual({ outcome: "saved", sessionResult: squats });
-    expect(history.list("julia")).toEqual([squats]);
+    expect(history.list(julia)).toEqual([squats]);
   });
 
   it("keeps an identical Resend once and hands back the stored Session Result", () => {
     const history = openSessionResultHistory(":memory:");
-    history.save("julia", squats);
+    history.save(julia, squats);
 
-    const resent = history.save("julia", { ...squats });
+    const resent = history.save(julia, { ...squats });
 
     expect(resent).toEqual({ outcome: "resent", sessionResult: squats });
-    expect(history.list("julia")).toEqual([squats]);
+    expect(history.list(julia)).toEqual([squats]);
   });
 
   it.each<[string, Partial<SessionResult>]>([
@@ -39,12 +49,12 @@ describe("Session Result history", () => {
     "refuses a Resend with different %s and keeps the original",
     (_, change) => {
       const history = openSessionResultHistory(":memory:");
-      history.save("julia", squats);
+      history.save(julia, squats);
 
-      const resent = history.save("julia", { ...squats, ...change });
+      const resent = history.save(julia, { ...squats, ...change });
 
       expect(resent).toEqual({ outcome: "conflict", sessionResult: squats });
-      expect(history.list("julia")).toEqual([squats]);
+      expect(history.list(julia)).toEqual([squats]);
     },
   );
 
@@ -52,29 +62,29 @@ describe("Session Result history", () => {
     const history = openSessionResultHistory(":memory:");
     const franeks = { ...squats, reps: 3 };
 
-    history.save("julia", squats);
-    const saved = history.save("franek", franeks);
+    history.save(julia, squats);
+    const saved = history.save(franek, franeks);
 
     expect(saved.outcome).toBe("saved");
-    expect(history.list("julia")).toEqual([squats]);
-    expect(history.list("franek")).toEqual([franeks]);
+    expect(history.list(julia)).toEqual([squats]);
+    expect(history.list(franek)).toEqual([franeks]);
   });
 
   it("stores performedAt in UTC, so the same instant in another offset is an identical Resend", () => {
     const history = openSessionResultHistory(":memory:");
 
-    const saved = history.save("julia", {
+    const saved = history.save(julia, {
       ...squats,
       performedAt: "2026-10-14T11:30:00+02:00",
     });
-    const resent = history.save("julia", {
+    const resent = history.save(julia, {
       ...squats,
       performedAt: "2026-10-14T09:30:00+00:00",
     });
 
     expect(saved).toEqual({ outcome: "saved", sessionResult: squats });
     expect(resent).toEqual({ outcome: "resent", sessionResult: squats });
-    expect(history.list("julia")).toEqual([squats]);
+    expect(history.list(julia)).toEqual([squats]);
   });
 
   it("lists newest performedAt first, and same-instant Session Results in save order", () => {
@@ -90,10 +100,10 @@ describe("Session Result history", () => {
     const tuesday = at("tuesday", "2026-10-13T08:00:00.000Z");
 
     for (const result of [monday, wednesdayFirst, wednesdaySecond, tuesday]) {
-      history.save("julia", result);
+      history.save(julia, result);
     }
 
-    expect(history.list("julia").map((r) => r.sessionId)).toEqual([
+    expect(history.list(julia).map((r) => r.sessionId)).toEqual([
       "wednesday-1",
       "wednesday-2",
       "tuesday",
@@ -107,11 +117,11 @@ describe("Session Result history", () => {
     const databasePath = join(directory, "history.sqlite");
 
     const before = openSessionResultHistory(databasePath);
-    before.save("julia", squats);
+    before.save(julia, squats);
     before.close();
     const after = openSessionResultHistory(databasePath);
 
-    expect(after.list("julia")).toEqual([squats]);
+    expect(after.list(julia)).toEqual([squats]);
     after.close();
   });
 });

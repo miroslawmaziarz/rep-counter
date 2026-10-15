@@ -22,14 +22,14 @@ export function buildApp({ databasePath }: AppOptions): FastifyInstance {
 
   app.get("/health", async () => ({ status: "ok" }));
 
-  app.get("/sessions", async (request) => history.list(request.patient.id));
+  app.get("/sessions", async (request) => history.list(request.patient));
 
   app.post<{ Body: SessionResult }>(
     "/sessions",
     { schema: { body: SESSION_RESULT_SCHEMA } },
     async (request, reply) => {
       const { outcome, sessionResult } = history.save(
-        request.patient.id,
+        request.patient,
         request.body,
       );
       if (outcome === "conflict") throw conflict();
