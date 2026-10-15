@@ -41,14 +41,14 @@ export function parseSessionResult(value: unknown): ParsedSessionResult {
       .map((field) => `${field} is not a Session Result field`),
   ];
   if (problems.length > 0) return { ok: false, problems };
+  // No problems: every rule passed and there is no other field.
+  const fields = value as SessionResultFields;
   return {
     ok: true,
     sessionResult: {
-      sessionId: value.sessionId,
-      reps: value.reps,
-      durationSec: value.durationSec,
-      performedAt: new Date(value.performedAt as string).toISOString(),
-    } as unknown as SessionResult,
+      ...fields,
+      performedAt: new Date(fields.performedAt).toISOString(),
+    } as SessionResult,
   };
 }
 
@@ -67,7 +67,13 @@ type FieldRule = {
 /** The longest sessionId, in Unicode code points. */
 const SESSION_ID_MAX_LENGTH = 128;
 
-const FIELD_RULES: Record<string, FieldRule> = {
+/** A Session Result's fields, without the brand only the parser adds. */
+type SessionResultFields = Omit<SessionResult, typeof sessionResultBrand>;
+
+/** One rule per field, so a missing or misspelled field fails to compile. */
+const FIELD_RULES: {
+  readonly [Field in keyof SessionResultFields]: FieldRule;
+} = {
   sessionId: {
     requirement: `must be a string of 1 to ${SESSION_ID_MAX_LENGTH} characters`,
     // Counts Unicode code points, as the server's JSON Schema `maxLength`
