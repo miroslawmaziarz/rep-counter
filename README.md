@@ -33,6 +33,12 @@ curl -H "Authorization: Bearer julia-token" http://localhost:3000/sessions
 
 These tokens are for the demo only. They are hard-coded in `packages/core/src/patients/patients.json`, and the web app ships every Patient's token to the browser, so anyone with the bundle can act as any Patient. A real deployment would issue tokens at sign-in.
 
+## Pull requests
+
+Each PR has one scope; the rule is in `AGENTS.md`. The `PR scopes` workflow checks it and sets the PR's `scope:*` label.
+
+The check is advisory: branch protection isn't available on this private repository's GitHub plan, so a failing check can't block a merge.
+
 ## What counts as one rep
 
 The knee angle goes **below 100°**, then comes back **above 160°**. Nothing else counts.

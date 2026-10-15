@@ -18,6 +18,7 @@ We design **deep modules**: a lot of behaviour behind a small interface.
 packages/core/   pure domain code: no DOM, Node APIs or I/O (ADR 0001)
 apps/server/     Fastify; owns Patient resolution and Session Result history
 apps/web/        React; owns Recordings, which never leave the browser
+scripts/         repo tooling, such as the PR scope check; not a workspace
 ```
 
 Allowed dependencies: `web → core` and `server → core`. Nothing depends on an app. `server` and `web` talk only over HTTP.
