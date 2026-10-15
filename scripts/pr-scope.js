@@ -7,6 +7,8 @@ const WORKSPACES = {
   web: "apps/web/",
 };
 
+const LABEL_PREFIX = "scope:";
+
 /**
  * @param {string} title
  * @param {string[]} files paths changed by the PR, relative to the repo root
@@ -30,4 +32,21 @@ export function checkPr(title, files) {
     ? []
     : [`Expected the title to be '${scope}: <Sentence>'; got '${title}'.`];
   return { scope, problems };
+}
+
+/**
+ * The label changes that leave a PR with only its scope's label.
+ *
+ * @param {string | null} scope null when the PR has no single scope
+ * @param {string[]} labels the PR's current labels
+ * @returns {{ add: string[], remove: string[] }}
+ */
+export function labelEdits(scope, labels) {
+  const wanted = scope === null ? null : `${LABEL_PREFIX}${scope}`;
+  return {
+    add: wanted === null || labels.includes(wanted) ? [] : [wanted],
+    remove: labels.filter(
+      (label) => label.startsWith(LABEL_PREFIX) && label !== wanted,
+    ),
+  };
 }

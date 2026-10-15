@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { checkPr } from "./pr-scope.js";
+import { checkPr, labelEdits } from "./pr-scope.js";
 
 describe("checkPr", () => {
   it("scopes a PR that changes one workspace plus root files to that workspace", () => {
@@ -58,4 +58,34 @@ describe("checkPr", () => {
       assert.equal(result.problems.length, 1);
     });
   }
+});
+
+describe("labelEdits", () => {
+  it("adds the scope's label and removes every other scope label", () => {
+    const edits = labelEdits("server", [
+      "scope:core",
+      "scope:web",
+      "ready-for-human",
+    ]);
+
+    assert.deepEqual(edits, {
+      add: ["scope:server"],
+      remove: ["scope:core", "scope:web"],
+    });
+  });
+
+  it("leaves a label that is already right", () => {
+    const edits = labelEdits("repo", ["scope:repo"]);
+
+    assert.deepEqual(edits, { add: [], remove: [] });
+  });
+
+  it("removes every scope label when the PR has no scope", () => {
+    const edits = labelEdits(null, ["scope:core", "scope:server"]);
+
+    assert.deepEqual(edits, {
+      add: [],
+      remove: ["scope:core", "scope:server"],
+    });
+  });
 });
