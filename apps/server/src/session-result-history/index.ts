@@ -5,20 +5,34 @@ export type SessionResult = {
   sessionId: string;
   reps: number;
   durationSec: number;
+  /** ISO 8601 with an offset; stored and returned in UTC (`…Z`). */
   performedAt: string;
 };
 
+/**
+ * What saving did, with the Session Result as stored:
+ * - `saved`: the first save of this `sessionId` for the Patient
+ * - `resent`: an identical Resend; nothing changed
+ * - `conflict`: a Resend with different values; the original is kept
+ */
 export type SaveOutcome = {
   outcome: "saved" | "resent" | "conflict";
   sessionResult: SessionResult;
 };
 
+/** Each Patient's Session Results, saved once per `(Patient, sessionId)`. */
 export type SessionResultHistory = {
   save(patientId: string, sessionResult: SessionResult): SaveOutcome;
+  /** The Patient's Session Results, newest `performedAt` first, ties in save order. */
   list(patientId: string): SessionResult[];
   close(): void;
 };
 
+/**
+ * Opens the history in a `node:sqlite` database, a file path or
+ * `:memory:`, creating its table if needed. The Resend rule (ADR 0002) is
+ * enforced by the table's `(patient_id, session_id)` key.
+ */
 export function openSessionResultHistory(
   databasePath: string,
 ): SessionResultHistory {
