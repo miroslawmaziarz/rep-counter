@@ -18,6 +18,12 @@ npm test
 
 If port 3000 is taken, run `PORT=3001 npm start`; the API and the web app's proxy both follow `PORT`.
 
+## Pull requests
+
+Each PR has one scope; the rule is in `AGENTS.md`. The `PR scopes` workflow checks it and sets the PR's `scope:*` label.
+
+The check is advisory: branch protection isn't available on this private repository's GitHub plan, so a failing check can't block a merge.
+
 ## What counts as one rep
 
 The knee angle goes **below 100°**, then comes back **above 160°**. Nothing else counts.
