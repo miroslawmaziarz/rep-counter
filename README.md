@@ -4,7 +4,7 @@ Take-home task for Physitrack MoCap. A patient does squats in front of a camera,
 
 Stack: Node, TypeScript, React.
 
-> **Status:** core counts Reps and validates Session Results, the API saves and lists each Patient's Session Results, and the web app shows the chosen Patient's history. Counting a Recording in the web app is not yet added.
+> **Status:** core counts Reps and validates Session Results, the API saves and lists each Patient's Session Results, and the web app counts a picked Recording, saves its Session Result and shows the chosen Patient's history.
 
 ## Getting started
 
@@ -17,6 +17,14 @@ npm test
 ```
 
 If port 3000 is taken, run `PORT=3001 npm start`; the API and the web app's proxy both follow `PORT`.
+
+## Counting a Recording
+
+1. Run `npm start` and open http://localhost:5173.
+2. Choose the Patient.
+3. Under **New Session**, click the **Recording** file input and pick a Fixture from `packages/core/fixtures/`, such as `session-clean.json`. Any JSON file in the [Fixture format](#fixture-format) works.
+
+The browser counts the Reps and shows them with the duration and, for a Fixture, its expected Reps. It then saves the Session Result (`sessionId`, `reps`, `durationSec`, `performedAt`) at once; the angles never leave the browser. Each pick is a new Session, even of the same file. If the save fails, **Retry** sends the same Session Result again, which the server saves once. Choosing another Patient discards the current Session.
 
 ## Patients and tokens
 
