@@ -1,3 +1,6 @@
+import { countReps } from "../rep-counting";
+import { parseSessionResult, type SessionResult } from "../session-result";
+
 declare const recordingBrand: unique symbol;
 
 /**
@@ -16,8 +19,7 @@ export type Recording = {
 
 /** A valid Recording, or every problem that stops a value being one. */
 export type ParsedRecording =
-  | { ok: true; recording: Recording }
-  | { ok: false; problems: string[] };
+  { ok: true; recording: Recording } | { ok: false; problems: string[] };
 
 /**
  * Checks that a value from outside (a picked file's parsed JSON) is a
@@ -48,6 +50,36 @@ export function parseRecording(value: unknown): ParsedRecording {
       ...(isRepCount(expectedReps) && { expectedReps }),
     } as Recording,
   };
+}
+
+/**
+ * Makes the Session Result of a Session from its Recording: `reps` by the
+ * Rep rule with the brief's Rep Thresholds, and `durationSec` the length of
+ * the whole Recording, each frame standing for `1 / sampleRateHz` seconds. A
+ * Recording with no Reps still makes a Session Result, with `reps: 0`.
+ *
+ * The caller brings the `sessionId` and `performedAt`, so ids and the clock
+ * stay out of core. The result goes through `parseSessionResult`, so
+ * `performedAt` comes back in UTC. A Recording always gives valid `reps` and
+ * `durationSec`, so the only refusal left is a bad `sessionId` or
+ * `performedAt`, which is the caller's bug: it throws, listing the problems.
+ */
+export function sessionResultOf(
+  recording: Recording,
+  session: { sessionId: string; performedAt: string },
+): SessionResult {
+  const parsed = parseSessionResult({
+    sessionId: session.sessionId,
+    reps: countReps(recording.angles),
+    durationSec: recording.angles.length / recording.sampleRateHz,
+    performedAt: session.performedAt,
+  });
+  if (!parsed.ok) {
+    throw new Error(
+      `Cannot make a Session Result: ${parsed.problems.join("; ")}`,
+    );
+  }
+  return parsed.sessionResult;
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {

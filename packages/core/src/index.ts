@@ -2,6 +2,7 @@
 export { patients, type Patient } from "./patients";
 export {
   parseRecording,
+  sessionResultOf,
   type ParsedRecording,
   type Recording,
 } from "./recording";
