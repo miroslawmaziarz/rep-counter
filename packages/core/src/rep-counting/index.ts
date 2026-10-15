@@ -1,8 +1,8 @@
 /** The Knee Angles, in degrees, that define a Rep. */
 export type RepThresholds = {
-  /** A frame strictly below this arms a Rep. The brief's value is 100°. */
+  /** A frame strictly below this means the squat went deep enough. The brief's value is 100°. */
   deepBelow: number;
-  /** A frame strictly above this completes an armed Rep. The brief's value is 160°. */
+  /** A frame strictly above this, after going deep, completes a Rep. The brief's value is 160°. */
   standingAbove: number;
 };
 
@@ -25,13 +25,13 @@ export function countReps(
 ): number {
   const { deepBelow, standingAbove } = { ...BRIEF_THRESHOLDS, ...thresholds };
   let reps = 0;
-  let armed = false;
+  let wentDeep = false;
   for (const angle of angles) {
     if (angle < deepBelow) {
-      armed = true;
-    } else if (armed && angle > standingAbove) {
+      wentDeep = true;
+    } else if (wentDeep && angle > standingAbove) {
       reps += 1;
-      armed = false;
+      wentDeep = false;
     }
   }
   return reps;
