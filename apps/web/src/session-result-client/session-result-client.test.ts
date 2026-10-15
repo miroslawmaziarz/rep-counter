@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { parseSessionResult, type SessionResult } from "@rep-counter/core";
 import { sessionResultClient } from ".";
 
 afterEach(() => {
@@ -168,6 +169,45 @@ describe("listing a Patient's Session Results", () => {
       await vi.advanceTimersByTimeAsync(10_000);
 
       expect(await listing).toEqual({ ok: false, failure: "network" });
+    });
+  });
+});
+
+/** A Session Result as core makes it, so `save` can be called with one. */
+function sessionResult(value: unknown): SessionResult {
+  const parsed = parseSessionResult(value);
+  if (!parsed.ok) throw new Error(parsed.problems.join("; "));
+  return parsed.sessionResult;
+}
+
+const todaysSession = sessionResult({
+  sessionId: "s-3",
+  reps: 10,
+  durationSec: 36.3,
+  performedAt: "2026-10-15T08:00:00.000Z",
+});
+
+describe("saving a Session Result", () => {
+  it("posts the Session Result as JSON with the Patient's token, and is saved on 201", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(Response.json(todaysSession, { status: 201 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const saved = await sessionResultClient("julia-token").save(todaysSession);
+
+    expect(saved).toBe("saved");
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/sessions");
+    expect(init.method).toBe("POST");
+    const headers = new Headers(init.headers);
+    expect(headers.get("Authorization")).toBe("Bearer julia-token");
+    expect(headers.get("Content-Type")).toBe("application/json");
+    expect(JSON.parse(init.body as string)).toEqual({
+      sessionId: "s-3",
+      reps: 10,
+      durationSec: 36.3,
+      performedAt: "2026-10-15T08:00:00.000Z",
     });
   });
 });
