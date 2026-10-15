@@ -179,3 +179,43 @@ describe("parseSessionResult refuses a bad field", () => {
     expectRefused(value, field);
   });
 });
+
+describe("parseSessionResult refuses a value of the wrong shape", () => {
+  it("when there is an extra field, naming it", () => {
+    expectRefused({ ...sessionResult, patientId: "franek" }, "patientId");
+  });
+
+  it.each<[string, unknown]>([
+    ["an array", [sessionResult]],
+    ["null", null],
+    ["a string", "session-1"],
+    ["undefined", undefined],
+  ])("when the value is %s", (_, value) => {
+    expect(parseSessionResult(value)).toEqual({
+      ok: false,
+      problems: ["a Session Result must be an object"],
+    });
+  });
+});
+
+describe("parseSessionResult on a value with several problems", () => {
+  it("reports each of them", () => {
+    const parsed = parseSessionResult({
+      sessionId: "",
+      reps: -1,
+      durationSec: "45",
+      patientId: "franek",
+    });
+
+    expect(parsed).toEqual({
+      ok: false,
+      problems: [
+        "sessionId must be a string of 1 to 128 characters",
+        "reps must be an integer ≥ 0",
+        "durationSec must be a finite number > 0",
+        "performedAt must be an RFC 3339 date-time with a Z or ±HH:MM offset, e.g. 2026-10-14T09:30:00.000Z",
+        "patientId is not a Session Result field",
+      ],
+    });
+  });
+});

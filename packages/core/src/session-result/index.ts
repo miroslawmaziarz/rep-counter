@@ -24,23 +24,38 @@ export type ParsedSessionResult =
 /**
  * Checks that a value from outside (a request body, a stored row) is a
  * Session Result, and normalises `performedAt` to UTC. Never throws: a
- * refusal lists every problem found, each naming its field.
+ * refusal lists every problem found, each naming its field. A value that is
+ * not a plain object (an array, `null`, a string) has no fields to name, so
+ * it gets one problem of its own.
  */
 export function parseSessionResult(value: unknown): ParsedSessionResult {
-  const fields = value as Record<string, unknown>;
-  const problems = Object.entries(FIELD_RULES).flatMap(([field, rule]) =>
-    rule.isValid(fields[field]) ? [] : [`${field} ${rule.requirement}`],
-  );
+  if (!isPlainObject(value)) {
+    return { ok: false, problems: ["a Session Result must be an object"] };
+  }
+  const problems = [
+    ...Object.entries(FIELD_RULES).flatMap(([field, rule]) =>
+      rule.isValid(value[field]) ? [] : [`${field} ${rule.requirement}`],
+    ),
+    ...Object.keys(value)
+      .filter((field) => !Object.hasOwn(FIELD_RULES, field))
+      .map((field) => `${field} is not a Session Result field`),
+  ];
   if (problems.length > 0) return { ok: false, problems };
   return {
     ok: true,
     sessionResult: {
-      sessionId: fields.sessionId,
-      reps: fields.reps,
-      durationSec: fields.durationSec,
-      performedAt: new Date(fields.performedAt as string).toISOString(),
+      sessionId: value.sessionId,
+      reps: value.reps,
+      durationSec: value.durationSec,
+      performedAt: new Date(value.performedAt as string).toISOString(),
     } as unknown as SessionResult,
   };
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (typeof value !== "object" || value === null) return false;
+  const prototype = Object.getPrototypeOf(value) as unknown;
+  return prototype === Object.prototype || prototype === null;
 }
 
 type FieldRule = {
