@@ -64,15 +64,18 @@ type FieldRule = {
   isValid: (value: unknown) => boolean;
 };
 
+/** The longest sessionId, in Unicode code points. */
+const SESSION_ID_MAX_LENGTH = 128;
+
 const FIELD_RULES: Record<string, FieldRule> = {
   sessionId: {
-    requirement: "must be a string of 1 to 128 characters",
+    requirement: `must be a string of 1 to ${SESSION_ID_MAX_LENGTH} characters`,
     // Counts Unicode code points, as the server's JSON Schema `maxLength`
     // does, so an emoji is one character, not two UTF-16 units.
     isValid: (value) =>
       typeof value === "string" &&
       value.length >= 1 &&
-      [...value].length <= 128,
+      [...value].length <= SESSION_ID_MAX_LENGTH,
   },
   reps: {
     requirement: "must be an integer ≥ 0",
