@@ -83,7 +83,7 @@ async function send(
     const response = await fetch(`/api${path}`, {
       method,
       headers,
-      body,
+      body: body ?? null,
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
     return { ok: true, response };
