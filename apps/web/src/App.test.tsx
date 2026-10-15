@@ -351,4 +351,43 @@ describe("counting a picked Recording and saving its Session Result", () => {
       await screen.findByRole("table", { name: "Session history" }),
     ).toBeInTheDocument();
   });
+
+  it("disables Retry while a send is in flight", async () => {
+    let answerRetry: (response: Response) => void = () => {};
+    const answers = [
+      () => Promise.reject(new TypeError("Failed to fetch")),
+      () => new Promise<Response>((resolve) => (answerRetry = resolve)),
+    ];
+    const api = stubApi({ save: () => answers.shift()!() });
+    render(<App />);
+    pickRecording(cleanFixture);
+    const retry = await screen.findByRole("button", { name: "Retry" });
+
+    fireEvent.click(retry);
+
+    expect(retry).toBeDisabled();
+    fireEvent.click(retry);
+    expect(api.savedBodies()).toHaveLength(2);
+    await act(async () => answerRetry(Response.json({}, { status: 201 })));
+    expect(await screen.findByText("Saved")).toBeInTheDocument();
+  });
+
+  it("says a conflicting Session Result was refused, with no Retry", async () => {
+    stubApi({
+      save: () =>
+        Promise.resolve(
+          Response.json({ message: "conflict" }, { status: 409 }),
+        ),
+    });
+    render(<App />);
+
+    pickRecording(cleanFixture);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Not saved: this Session was already saved with different values.",
+    );
+    expect(
+      screen.queryByRole("button", { name: "Retry" }),
+    ).not.toBeInTheDocument();
+  });
 });

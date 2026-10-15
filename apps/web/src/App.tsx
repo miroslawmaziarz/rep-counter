@@ -192,6 +192,11 @@ function CountedSession({
       <p role="status">
         {sending ? "Saving…" : outcome === "saved" && "Saved"}
       </p>
+      {outcome === "conflict" && (
+        <p role="alert">
+          Not saved: this Session was already saved with different values.
+        </p>
+      )}
       {isFailure(outcome) && (
         <>
           <p role="alert">Not saved.</p>
