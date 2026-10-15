@@ -32,11 +32,39 @@ type Session = {
   outcome?: SaveOutcome;
 };
 
-/** Stands for a file whose text does not parse as JSON. */
-const NOT_JSON = Symbol("not JSON");
-
 /** A picked file that is not a Recording, and why; nothing is sent. */
 type Refusal = { refused: string; problems: string[] };
+
+/**
+ * Reads a picked file as a Recording, or says why it is not one: its text
+ * is not JSON, or core's `parseRecording` finds problems. Never throws.
+ */
+async function readRecordingFile(
+  file: File,
+): Promise<
+  { ok: true; recording: Recording } | { ok: false; refusal: Refusal }
+> {
+  let json: unknown;
+  try {
+    json = JSON.parse(await file.text());
+  } catch {
+    return {
+      ok: false,
+      refusal: { refused: `${file.name} is not a JSON file.`, problems: [] },
+    };
+  }
+  const parsed = parseRecording(json);
+  if (!parsed.ok) {
+    return {
+      ok: false,
+      refusal: {
+        refused: `${file.name} is not a Recording:`,
+        problems: parsed.problems,
+      },
+    };
+  }
+  return { ok: true, recording: parsed.recording };
+}
 
 export function App() {
   const [patient, setPatient] = useState(patients[0]!);
@@ -115,27 +143,14 @@ export function App() {
     const pick = shownPick.current;
     // The Session was performed before its file was picked, not once read.
     const performedAt = new Date().toISOString();
-    let json: unknown;
-    try {
-      json = JSON.parse(await file.text());
-    } catch {
-      json = NOT_JSON;
-    }
+    const read = await readRecordingFile(file);
     // Another Patient chosen, or another file picked, while this one was read.
     if (shownPick.current !== pick) return;
-    if (json === NOT_JSON) {
-      setRefusal({ refused: `${file.name} is not a JSON file.`, problems: [] });
+    if (!read.ok) {
+      setRefusal(read.refusal);
       return;
     }
-    const parsed = parseRecording(json);
-    if (!parsed.ok) {
-      setRefusal({
-        refused: `${file.name} is not a Recording:`,
-        problems: parsed.problems,
-      });
-      return;
-    }
-    const sessionResult = sessionResultOf(parsed.recording, {
+    const sessionResult = sessionResultOf(read.recording, {
       sessionId: crypto.randomUUID(),
       performedAt,
     });
@@ -143,7 +158,7 @@ export function App() {
       pick,
       patientId: patient.id,
       client,
-      recording: parsed.recording,
+      recording: read.recording,
       sessionResult,
       sending: true,
     };
