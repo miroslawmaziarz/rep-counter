@@ -44,4 +44,16 @@ describe("Session Result history", () => {
       expect(history.list("julia")).toEqual([squats]);
     },
   );
+
+  it("keeps each Patient's sessionIds apart", () => {
+    const history = openSessionResultHistory(":memory:");
+    const franeks = { ...squats, reps: 3 };
+
+    history.save("julia", squats);
+    const saved = history.save("franek", franeks);
+
+    expect(saved.outcome).toBe("saved");
+    expect(history.list("julia")).toEqual([squats]);
+    expect(history.list("franek")).toEqual([franeks]);
+  });
 });
