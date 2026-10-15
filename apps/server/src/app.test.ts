@@ -96,4 +96,65 @@ describe("POST /sessions", () => {
     expect(response.json()).toEqual(squats);
     expect((await list(app, JULIA)).json()).toEqual([squats]);
   });
+
+  it("answers an identical Resend with 200 and the stored Session Result, and keeps it once", async () => {
+    const app = testApp();
+    await post(app, JULIA, squats);
+
+    const response = await post(app, JULIA, squats);
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual(squats);
+    expect((await list(app, JULIA)).json()).toEqual([squats]);
+  });
+
+  it("treats performedAt in +00:00 and Z for the same instant as an identical Resend", async () => {
+    const app = testApp();
+    await post(app, JULIA, {
+      ...squats,
+      performedAt: "2026-10-14T09:30:00+00:00",
+    });
+
+    const response = await post(app, JULIA, squats);
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual(squats);
+  });
+
+  it("refuses a conflicting Resend with 409 and keeps the original values", async () => {
+    const app = testApp();
+    await post(app, JULIA, squats);
+
+    const response = await post(app, JULIA, { ...squats, reps: 13 });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toMatchObject({ statusCode: 409 });
+    expect((await list(app, JULIA)).json()).toEqual([squats]);
+  });
+
+  it("lets Julia and Franek each save the same sessionId and see only their own", async () => {
+    const app = testApp();
+    const franeks = { ...squats, reps: 3 };
+
+    const julias = await post(app, JULIA, squats);
+    const franekResponse = await post(app, FRANEK, franeks);
+
+    expect(julias.statusCode).toBe(201);
+    expect(franekResponse.statusCode).toBe(201);
+    expect((await list(app, JULIA)).json()).toEqual([squats]);
+    expect((await list(app, FRANEK)).json()).toEqual([franeks]);
+  });
+
+  it("refuses a caller who is not a Patient with 401", async () => {
+    const app = testApp();
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/sessions",
+      payload: squats,
+    });
+
+    expect(response.statusCode).toBe(401);
+    expect((await list(app, JULIA)).json()).toEqual([]);
+  });
 });
