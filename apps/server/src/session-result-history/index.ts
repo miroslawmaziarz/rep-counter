@@ -1,4 +1,8 @@
-import type { Patient, SessionResult } from "@rep-counter/core";
+import {
+  parseSessionResult,
+  type Patient,
+  type SessionResult,
+} from "@rep-counter/core";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -103,14 +107,21 @@ function sameValues(a: SessionResult, b: SessionResult): boolean {
 }
 
 /**
- * A stored row as a Session Result. Only parsed Session Results are saved,
- * so a row is one already.
+ * A stored row as a Session Result, made by core's `parseSessionResult` like
+ * any other. Only parsed Session Results are saved, so a row that is not one
+ * means the database was changed behind this module's back.
  */
 function toSessionResult(row: Record<string, unknown>): SessionResult {
-  return {
-    sessionId: row.session_id as string,
-    reps: row.reps as number,
-    durationSec: row.duration_sec as number,
-    performedAt: row.performed_at as string,
-  } as SessionResult;
+  const result = parseSessionResult({
+    sessionId: row.session_id,
+    reps: row.reps,
+    durationSec: row.duration_sec,
+    performedAt: row.performed_at,
+  });
+  if (!result.ok) {
+    throw new Error(
+      `A stored row is not a Session Result: ${result.problems.join("; ")}`,
+    );
+  }
+  return result.sessionResult;
 }

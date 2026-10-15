@@ -1,6 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { describe, expect, it, onTestFinished } from "vitest";
 import {
   parseSessionResult,
@@ -144,5 +145,19 @@ describe("Session Result history", () => {
 
     expect(history.list(julia)).toEqual([sessionResult]);
     history.close();
+  });
+
+  it("refuses to list a stored row that is not a Session Result", () => {
+    const directory = mkdtempSync(join(tmpdir(), "rep-counter-"));
+    onTestFinished(() => rmSync(directory, { recursive: true, force: true }));
+    const databasePath = join(directory, "history.sqlite");
+    const history = openSessionResultHistory(databasePath);
+    onTestFinished(() => history.close());
+    history.save(julia, sessionResult);
+    const corrupter = new DatabaseSync(databasePath);
+    corrupter.exec("UPDATE session_results SET reps = -1");
+    corrupter.close();
+
+    expect(() => history.list(julia)).toThrow(/\breps\b/);
   });
 });
