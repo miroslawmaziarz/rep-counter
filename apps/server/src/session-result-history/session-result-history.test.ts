@@ -124,4 +124,16 @@ describe("Session Result history", () => {
     expect(after.list(julia)).toEqual([squats]);
     after.close();
   });
+
+  it("creates the database file's missing directories", () => {
+    const directory = mkdtempSync(join(tmpdir(), "rep-counter-"));
+    onTestFinished(() => rmSync(directory, { recursive: true, force: true }));
+    const databasePath = join(directory, "not", "yet", "history.sqlite");
+
+    const history = openSessionResultHistory(databasePath);
+    history.save(julia, squats);
+
+    expect(history.list(julia)).toEqual([squats]);
+    history.close();
+  });
 });

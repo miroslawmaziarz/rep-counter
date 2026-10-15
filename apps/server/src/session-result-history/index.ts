@@ -1,5 +1,10 @@
 import type { Patient } from "@rep-counter/core";
+import { mkdirSync } from "node:fs";
+import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+
+/** `node:sqlite`'s name for a database that lives only in memory. */
+const IN_MEMORY = ":memory:";
 
 /** What is kept about a Session. */
 export type SessionResult = {
@@ -31,12 +36,16 @@ export type SessionResultHistory = {
 
 /**
  * Opens the history in a `node:sqlite` database, a file path or
- * `:memory:`, creating its table if needed. The Resend rule (ADR 0002) is
- * enforced by the table's `(patient_id, session_id)` key.
+ * `:memory:`, creating the file's directories and its table if needed. The
+ * Resend rule (ADR 0002) is enforced by the table's `(patient_id,
+ * session_id)` key.
  */
 export function openSessionResultHistory(
   databasePath: string,
 ): SessionResultHistory {
+  if (databasePath !== IN_MEMORY) {
+    mkdirSync(dirname(databasePath), { recursive: true });
+  }
   const db = new DatabaseSync(databasePath);
   db.exec(`
     CREATE TABLE IF NOT EXISTS session_results (
