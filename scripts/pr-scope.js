@@ -23,7 +23,7 @@ const LABEL_PREFIX = "scope:";
  *   root; each one's scope is its folder name
  * @returns {{ scope: string | null, problems: string[] }}
  */
-export function checkPr(title, files, workspaceDirs) {
+export function scopePr(title, files, workspaceDirs) {
   const workspaces = workspaceDirs
     .filter((dir) => files.some((file) => file.startsWith(`${dir}/`)))
     .map((dir) => path.posix.basename(dir));
@@ -125,7 +125,7 @@ function main() {
   const files = lines(
     run("git", ["diff", "--name-only", `${values.base}...HEAD`]),
   );
-  const { scope, problems } = checkPr(title, files, workspaceDirs());
+  const { scope, problems } = scopePr(title, files, workspaceDirs());
   if (values.pr !== undefined) syncLabels(values.pr, scope);
 
   const errorPrefix = process.env.GITHUB_ACTIONS ? "::error::" : "";

@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { checkPr, labelEdits } from "./pr-scope.js";
+import { scopePr, labelEdits } from "./pr-scope.js";
 
 const WORKSPACES = ["packages/core", "apps/server", "apps/web"];
 
-describe("checkPr", () => {
+describe("scopePr", () => {
   it("scopes a PR that changes one workspace plus root files to that workspace", () => {
-    const result = checkPr(
+    const result = scopePr(
       "server: Save a Session Result",
       ["apps/server/src/app.ts", "package-lock.json", "docs/architecture.md"],
       WORKSPACES,
@@ -16,7 +16,7 @@ describe("checkPr", () => {
   });
 
   it("scopes a PR that changes only root files to repo", () => {
-    const result = checkPr(
+    const result = scopePr(
       "repo: Scope PR titles",
       [".github/workflows/ci.yml", "AGENTS.md"],
       WORKSPACES,
@@ -26,7 +26,7 @@ describe("checkPr", () => {
   });
 
   it("refuses a PR that changes more than one workspace, naming each", () => {
-    const result = checkPr(
+    const result = scopePr(
       "core: List the Patients",
       [
         "packages/core/src/patients/index.ts",
@@ -42,7 +42,7 @@ describe("checkPr", () => {
   });
 
   it("refuses a title whose scope isn't the one the files give", () => {
-    const result = checkPr(
+    const result = scopePr(
       "core: Save a Session Result",
       ["apps/server/src/app.ts"],
       WORKSPACES,
@@ -54,7 +54,7 @@ describe("checkPr", () => {
   });
 
   it("scopes a PR to a new workspace by its folder name", () => {
-    const result = checkPr(
+    const result = scopePr(
       "mobile: Count Reps on the phone",
       ["apps/mobile/src/app.ts"],
       [...WORKSPACES, "apps/mobile"],
@@ -72,7 +72,7 @@ describe("checkPr", () => {
     "server: ",
   ]) {
     it(`refuses the title '${title}'`, () => {
-      const result = checkPr(title, ["apps/server/src/app.ts"], WORKSPACES);
+      const result = scopePr(title, ["apps/server/src/app.ts"], WORKSPACES);
 
       assert.equal(result.problems.length, 1);
     });
