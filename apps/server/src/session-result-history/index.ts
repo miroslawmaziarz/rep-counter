@@ -1,19 +1,10 @@
-import type { Patient } from "@rep-counter/core";
+import type { Patient, SessionResult } from "@rep-counter/core";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 /** `node:sqlite`'s name for a database that lives only in memory. */
 const IN_MEMORY = ":memory:";
-
-/** What is kept about a Session. */
-export type SessionResult = {
-  sessionId: string;
-  reps: number;
-  durationSec: number;
-  /** ISO 8601 with an offset; stored and returned in UTC (`…Z`). */
-  performedAt: string;
-};
 
 /**
  * What saving did, with the Session Result as stored:
@@ -77,11 +68,7 @@ export function openSessionResultHistory(
   `);
 
   return {
-    save(patient, received) {
-      const sessionResult = {
-        ...received,
-        performedAt: new Date(received.performedAt).toISOString(),
-      };
+    save(patient, sessionResult) {
       const { changes } = insert.run(
         patient.id,
         sessionResult.sessionId,
@@ -115,11 +102,15 @@ function sameValues(a: SessionResult, b: SessionResult): boolean {
   );
 }
 
+/**
+ * A stored row as a Session Result. Only parsed Session Results are saved,
+ * so a row is one already.
+ */
 function toSessionResult(row: Record<string, unknown>): SessionResult {
   return {
     sessionId: row.session_id as string,
     reps: row.reps as number,
     durationSec: row.duration_sec as number,
     performedAt: row.performed_at as string,
-  };
+  } as SessionResult;
 }
