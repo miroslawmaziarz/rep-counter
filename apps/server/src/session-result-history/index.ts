@@ -49,6 +49,7 @@ export function openSessionResultHistory(
     SELECT session_id, reps, duration_sec, performed_at
     FROM session_results
     WHERE patient_id = ?
+    ORDER BY performed_at DESC, rowid ASC
   `);
 
   return {

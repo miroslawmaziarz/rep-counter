@@ -73,4 +73,28 @@ describe("Session Result history", () => {
     expect(resent).toEqual({ outcome: "resent", sessionResult: squats });
     expect(history.list("julia")).toEqual([squats]);
   });
+
+  it("lists newest performedAt first, and same-instant Session Results in save order", () => {
+    const history = openSessionResultHistory(":memory:");
+    const at = (sessionId: string, performedAt: string) => ({
+      ...squats,
+      sessionId,
+      performedAt,
+    });
+    const monday = at("monday", "2026-10-12T08:00:00.000Z");
+    const wednesdayFirst = at("wednesday-1", "2026-10-14T08:00:00.000Z");
+    const wednesdaySecond = at("wednesday-2", "2026-10-14T08:00:00.000Z");
+    const tuesday = at("tuesday", "2026-10-13T08:00:00.000Z");
+
+    for (const result of [monday, wednesdayFirst, wednesdaySecond, tuesday]) {
+      history.save("julia", result);
+    }
+
+    expect(history.list("julia").map((r) => r.sessionId)).toEqual([
+      "wednesday-1",
+      "wednesday-2",
+      "tuesday",
+      "monday",
+    ]);
+  });
 });
