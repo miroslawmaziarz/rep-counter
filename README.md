@@ -4,7 +4,19 @@ Take-home task for Physitrack MoCap. A patient does squats in front of a camera,
 
 Stack: Node, TypeScript, React.
 
-> **Status:** the repo currently holds the task brief and fixtures only. The implementation is not yet added.
+> **Status:** the workspace, tooling and app shells are in place: the web app shows whether the API is reachable. Rep counting and the Session Result API and history are not yet added.
+
+## Getting started
+
+Requires Node 22.22.2 or newer within 22.x (see `.nvmrc`; run `nvm use`).
+
+```sh
+npm install
+npm start   # API on http://localhost:3000, web app on http://localhost:5173
+npm test
+```
+
+If port 3000 is taken, run `PORT=3001 npm start`; the API and the web app's proxy both follow `PORT`.
 
 ## What counts as one rep
 
@@ -12,19 +24,24 @@ The knee angle goes **below 100°**, then comes back **above 160°**. Nothing el
 
 ## Repository contents
 
-| Path | Description |
-| --- | --- |
-| `rep-counter-v2.html` | The original task brief (open in a browser). |
-| `fixtures/session-clean.json` | Ten full squats, clean signal. Expected reps: 10. |
-| `fixtures/session-noisy.json` | Eight full squats; noisy tracking, and the patient pauses at the bottom of each. Expected reps: 8. |
-| `fixtures/session-shallow.json` | Ten attempts; three only go halfway down. Expected reps: 7. |
+| Path                            | Description                                                                                        |
+| ------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `rep-counter-v2.html`           | The original task brief (open in a browser).                                                       |
+| `fixtures/session-clean.json`   | Ten full squats, clean signal. Expected reps: 10.                                                  |
+| `fixtures/session-noisy.json`   | Eight full squats; noisy tracking, and the patient pauses at the bottom of each. Expected reps: 8. |
+| `fixtures/session-shallow.json` | Ten attempts; three only go halfway down. Expected reps: 7.                                        |
 
 ## Fixture format
 
-Sessions are sampled at 30 frames per second.
+Recordings are sampled at 30 frames per second.
 
 ```json
-{ "description": "...", "expectedReps": 10, "sampleRateHz": 30, "angles": [171.2, 172.4, "..."] }
+{
+  "description": "...",
+  "expectedReps": 10,
+  "sampleRateHz": 30,
+  "angles": [171.2, 172.4, "..."]
+}
 ```
 
 ## Planned scope
