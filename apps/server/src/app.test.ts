@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { patients } from "@rep-counter/core";
 import type { FastifyInstance } from "fastify";
 import { describe, expect, it, onTestFinished } from "vitest";
@@ -277,5 +280,21 @@ describe("POST /sessions", () => {
 
     expect(response.statusCode).toBe(401);
     expect((await list(app, JULIA)).json()).toEqual([]);
+  });
+});
+
+describe("the database file", () => {
+  it("keeps a Session Result after the app is closed and rebuilt on the same path", async () => {
+    const directory = mkdtempSync(join(tmpdir(), "rep-counter-"));
+    onTestFinished(() => rmSync(directory, { recursive: true, force: true }));
+    const databasePath = join(directory, "session-results.sqlite");
+
+    const before = buildApp({ databasePath });
+    await post(before, JULIA, sessionResult);
+    await before.close();
+    const after = buildApp({ databasePath });
+    onTestFinished(() => after.close());
+
+    expect((await list(after, JULIA)).json()).toEqual([sessionResult]);
   });
 });
