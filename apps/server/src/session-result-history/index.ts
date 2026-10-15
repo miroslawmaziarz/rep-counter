@@ -9,7 +9,7 @@ export type SessionResult = {
 };
 
 export type SaveOutcome = {
-  outcome: "saved" | "resent";
+  outcome: "saved" | "resent" | "conflict";
   sessionResult: SessionResult;
 };
 
@@ -63,8 +63,9 @@ export function openSessionResultHistory(
       const stored = toSessionResult(
         selectOne.get(patientId, sessionResult.sessionId)!,
       );
+      if (changes === 1) return { outcome: "saved", sessionResult: stored };
       return {
-        outcome: changes === 1 ? "saved" : "resent",
+        outcome: sameValues(stored, sessionResult) ? "resent" : "conflict",
         sessionResult: stored,
       };
     },
@@ -75,6 +76,14 @@ export function openSessionResultHistory(
       db.close();
     },
   };
+}
+
+function sameValues(a: SessionResult, b: SessionResult): boolean {
+  return (
+    a.reps === b.reps &&
+    a.durationSec === b.durationSec &&
+    a.performedAt === b.performedAt
+  );
 }
 
 function toSessionResult(row: Record<string, unknown>): SessionResult {

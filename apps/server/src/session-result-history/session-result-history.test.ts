@@ -27,4 +27,21 @@ describe("Session Result history", () => {
     expect(resent).toEqual({ outcome: "resent", sessionResult: squats });
     expect(history.list("julia")).toEqual([squats]);
   });
+
+  it.each<[string, Partial<SessionResult>]>([
+    ["reps", { reps: 13 }],
+    ["durationSec", { durationSec: 46 }],
+    ["performedAt", { performedAt: "2026-10-14T09:31:00.000Z" }],
+  ])(
+    "refuses a Resend with different %s and keeps the original",
+    (_, change) => {
+      const history = openSessionResultHistory(":memory:");
+      history.save("julia", squats);
+
+      const resent = history.save("julia", { ...squats, ...change });
+
+      expect(resent).toEqual({ outcome: "conflict", sessionResult: squats });
+      expect(history.list("julia")).toEqual([squats]);
+    },
+  );
 });
