@@ -7,6 +7,7 @@ import {
 } from "@rep-counter/core";
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import {
+  canResend,
   sessionResultClient,
   type ListedSessionResults,
   type SaveOutcome,
@@ -234,7 +235,7 @@ function CountedSession({
       {outcome === "refused" && (
         <p role="alert">Not saved: the server refused this Session.</p>
       )}
-      {isFailure(outcome) && (
+      {canResend(outcome) && (
         <>
           <p role="alert">Not saved.</p>
           <button type="button" disabled={sending} onClick={onRetry}>
@@ -244,10 +245,6 @@ function CountedSession({
       )}
     </>
   );
-}
-
-function isFailure(outcome: SaveOutcome | undefined) {
-  return outcome === "network" || outcome === "server";
 }
 
 /** The listed history, or its loading, empty or error state. */

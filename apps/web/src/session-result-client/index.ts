@@ -29,6 +29,16 @@ export type SaveFailure = Exclude<Failure, "malformed">;
  */
 export type SaveOutcome = "saved" | "conflict" | "refused" | SaveFailure;
 
+/**
+ * Whether sending the same Session Result again may yet save it: true only
+ * for a SaveFailure.
+ */
+export function canResend(
+  outcome: SaveOutcome | undefined,
+): outcome is SaveFailure {
+  return outcome === "network" || outcome === "server";
+}
+
 /** Talks to the API on behalf of one Patient, identified by their token. */
 export type SessionResultClient = {
   /**
