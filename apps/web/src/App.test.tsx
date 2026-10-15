@@ -1,4 +1,11 @@
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -304,5 +311,44 @@ describe("counting a picked Recording and saving its Session Result", () => {
       screen.queryByText("Reps", { selector: "dt" }),
     ).not.toBeInTheDocument();
     expect(api.savedBodies()).toEqual([]);
+  });
+
+  it("shows a failed save as not saved, and Retry resends the same Session Result until it is saved", async () => {
+    const answers = [
+      () => Promise.reject(new TypeError("Failed to fetch")),
+      () => Promise.resolve(new Response(null, { status: 503 })),
+      () => Promise.resolve(Response.json({}, { status: 200 })),
+    ];
+    let listings = 0;
+    const api = stubApi({
+      history: () => {
+        listings += 1;
+        return Promise.resolve(
+          Response.json(listings > 1 ? juliasHistory : []),
+        );
+      },
+      save: () => answers.shift()!(),
+    });
+    render(<App />);
+    await screen.findByText("No Sessions yet");
+    pickRecording(cleanFixture);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Not saved");
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Retry" })).toBeEnabled(),
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent("Not saved");
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+    expect(await screen.findByText("Saved")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Retry" }),
+    ).not.toBeInTheDocument();
+    const [first, ...resends] = api.savedBodies();
+    expect(resends).toEqual([first, first]);
+    expect(
+      await screen.findByRole("table", { name: "Session history" }),
+    ).toBeInTheDocument();
   });
 });

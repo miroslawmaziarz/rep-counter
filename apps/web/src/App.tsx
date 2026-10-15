@@ -68,6 +68,12 @@ export function App() {
     });
   }
 
+  /** Sends the very same Session Result again, so the server sees a Resend. */
+  function retry(failed: Session) {
+    setSession({ ...failed, sending: true });
+    save(failed);
+  }
+
   async function pick(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     // Cleared, so picking the same file again is a new pick.
@@ -148,7 +154,9 @@ export function App() {
             )}
           </div>
         )}
-        {session && <CountedSession session={session} />}
+        {session && (
+          <CountedSession session={session} onRetry={() => retry(session)} />
+        )}
       </section>
       <section aria-labelledby="history-heading">
         <h2 id="history-heading">Sessions</h2>
@@ -161,7 +169,13 @@ export function App() {
 }
 
 /** The picked Recording's count, and how saving its Session Result went. */
-function CountedSession({ session }: { session: Session }) {
+function CountedSession({
+  session,
+  onRetry,
+}: {
+  session: Session;
+  onRetry: () => void;
+}) {
   const { recording, sessionResult, sending, outcome } = session;
   return (
     <>
@@ -178,7 +192,21 @@ function CountedSession({ session }: { session: Session }) {
       <p role="status">
         {sending ? "Saving…" : outcome === "saved" && "Saved"}
       </p>
+      {isFailure(outcome) && (
+        <>
+          <p role="alert">Not saved.</p>
+          <button type="button" disabled={sending} onClick={onRetry}>
+            Retry
+          </button>
+        </>
+      )}
     </>
+  );
+}
+
+function isFailure(outcome: SaveOutcome | undefined) {
+  return (
+    outcome === "network" || outcome === "server" || outcome === "malformed"
   );
 }
 
