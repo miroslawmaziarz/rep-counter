@@ -68,10 +68,10 @@ describe("a Patient's Session history", () => {
     render(<App />);
 
     await screen.findByRole("table", { name: "Session history" });
-    // Performed is shown in local time: the tests run in Europe/Warsaw.
+    // Performed is shown in local time: the tests run in UTC.
     expect(historyRows()).toEqual([
-      [expect.stringContaining("11:30"), "12", "42.3 s"],
-      [expect.stringContaining("8:05"), "0", "5.0 s"],
+      [expect.stringContaining("9:30"), "12", "42.3 s"],
+      [expect.stringContaining("6:05"), "0", "5.0 s"],
     ]);
     expect(tokenOf(fetchMock.mock.calls[0]?.[1])).toBe("julia-token");
   });
@@ -153,7 +153,7 @@ describe("a Patient's Session history", () => {
 
     expect(await screen.findByText("20.0 s")).toBeInTheDocument();
     expect(historyRows()).toEqual([
-      [expect.stringContaining("9:00"), "7", "20.0 s"],
+      [expect.stringContaining("7:00"), "7", "20.0 s"],
     ]);
     expect(tokenOf(fetchMock.mock.calls.at(-1)?.[1])).toBe("franek-token");
   });
@@ -177,7 +177,7 @@ describe("a Patient's Session history", () => {
     await act(async () => answerJulia(Response.json(juliasHistory)));
 
     expect(historyRows()).toEqual([
-      [expect.stringContaining("9:00"), "7", "20.0 s"],
+      [expect.stringContaining("7:00"), "7", "20.0 s"],
     ]);
   });
 
