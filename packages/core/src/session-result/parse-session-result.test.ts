@@ -31,6 +31,14 @@ describe("parseSessionResult on a valid Session Result", () => {
       "sessionId is 128 chars",
       { ...sessionResult, sessionId: "s".repeat(128) },
     ],
+    [
+      "sessionId is 128 emoji (code points, not UTF-16 units)",
+      { ...sessionResult, sessionId: "😀".repeat(128) },
+    ],
+    [
+      "sessionId is 127 chars and an emoji",
+      { ...sessionResult, sessionId: "a".repeat(127) + "😀" },
+    ],
     ["durationSec is a fraction", { ...sessionResult, durationSec: 0.25 }],
     [
       "performedAt is in the future",
@@ -72,6 +80,11 @@ describe("parseSessionResult refuses a bad field", () => {
     [
       "sessionId is over 128 chars",
       { ...sessionResult, sessionId: "s".repeat(129) },
+      "sessionId",
+    ],
+    [
+      "sessionId is over 128 emoji",
+      { ...sessionResult, sessionId: "😀".repeat(129) },
       "sessionId",
     ],
     [
