@@ -15,11 +15,16 @@ import {
 } from "./session-result-client";
 
 /**
- * The Session made from the picked Recording. It keeps the client of the
+ * What the page shows of the Session made from the picked Recording: its
+ * count and how saving its Session Result went. It keeps the client of the
  * Patient it was picked for, so it can only ever be saved to their history.
  */
-type Session = {
-  /** The pick it was made from; see `shownPick`. */
+type ShownSession = {
+  /**
+   * A token unique to the pick it was made from. A save's answer carries it
+   * back, and is dropped unless it still matches `shownPick`, so an answer
+   * never lands on a newer pick.
+   */
   pick: symbol;
   /** The id of the Patient it was picked for; see `chosenPatientId`. */
   patientId: string;
@@ -81,7 +86,7 @@ export function App() {
   }>();
   // Bumped after a save, to list the history again.
   const [historyVersion, setHistoryVersion] = useState(0);
-  const [session, setSession] = useState<Session>();
+  const [session, setSession] = useState<ShownSession>();
   const [refusal, setRefusal] = useState<Refusal>();
   // Replaced whenever the shown Session is discarded, so a file read or a
   // save's answer that arrives for an older pick is dropped.
@@ -100,7 +105,7 @@ export function App() {
     };
   }, [client, patient.token, historyVersion]);
 
-  function save({ pick, patientId, client, sessionResult }: Session) {
+  function save({ pick, patientId, client, sessionResult }: ShownSession) {
     void client.save(sessionResult).then((outcome) => {
       if (chosenPatientId.current !== patientId) return;
       if (outcome === "saved") setHistoryVersion((version) => version + 1);
@@ -117,8 +122,8 @@ export function App() {
   }
 
   /**
-   * Another Patient discards the current Session, so a Retry can never save
-   * one Patient's Session into another's history.
+   * Another Patient discards the current Session, so it can never be resent
+   * into another Patient's history.
    */
   function choosePatient(id: string) {
     const chosen = patients.find((candidate) => candidate.id === id);
@@ -128,8 +133,11 @@ export function App() {
     setPatient(chosen);
   }
 
-  /** Sends the very same Session Result again, so the server sees a Resend. */
-  function retry(failed: Session) {
+  /**
+   * Resends the very same Session Result, so the server sees a Resend. The
+   * button says "Retry"; from the server's side it is a Resend.
+   */
+  function resend(failed: ShownSession) {
     setSession({ ...failed, sending: true });
     save(failed);
   }
@@ -205,7 +213,7 @@ export function App() {
           </div>
         )}
         {session && (
-          <CountedSession session={session} onRetry={() => retry(session)} />
+          <CountedSession session={session} onResend={() => resend(session)} />
         )}
       </section>
       <section aria-labelledby="history-heading">
@@ -221,10 +229,10 @@ export function App() {
 /** The picked Recording's count, and how saving its Session Result went. */
 function CountedSession({
   session,
-  onRetry,
+  onResend,
 }: {
-  session: Session;
-  onRetry: () => void;
+  session: ShownSession;
+  onResend: () => void;
 }) {
   const { recording, sessionResult, sending, outcome } = session;
   return (
@@ -253,7 +261,7 @@ function CountedSession({
       {canResend(outcome) && (
         <>
           <p role="alert">Not saved.</p>
-          <button type="button" disabled={sending} onClick={onRetry}>
+          <button type="button" disabled={sending} onClick={onResend}>
             Retry
           </button>
         </>
