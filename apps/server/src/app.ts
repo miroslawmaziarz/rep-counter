@@ -11,7 +11,10 @@ export type AppOptions = {
 };
 
 export function buildApp({ databasePath }: AppOptions): FastifyInstance {
-  const app = Fastify();
+  // Strict bodies: reject extra fields and wrong types rather than strip or coerce them.
+  const app = Fastify({
+    ajv: { customOptions: { removeAdditional: false, coerceTypes: false } },
+  });
   resolvePatients(app);
 
   const history = openSessionResultHistory(databasePath);
@@ -21,17 +24,39 @@ export function buildApp({ databasePath }: AppOptions): FastifyInstance {
 
   app.get("/sessions", async (request) => history.list(request.patient.id));
 
-  app.post<{ Body: SessionResult }>("/sessions", async (request, reply) => {
-    const { outcome, sessionResult } = history.save(
-      request.patient.id,
-      request.body,
-    );
-    if (outcome === "conflict") throw conflict();
-    return reply.code(STATUS_BY_OUTCOME[outcome]).send(sessionResult);
-  });
+  app.post<{ Body: SessionResult }>(
+    "/sessions",
+    { schema: { body: SESSION_RESULT_SCHEMA } },
+    async (request, reply) => {
+      const { outcome, sessionResult } = history.save(
+        request.patient.id,
+        request.body,
+      );
+      if (outcome === "conflict") throw conflict();
+      return reply.code(STATUS_BY_OUTCOME[outcome]).send(sessionResult);
+    },
+  );
 
   return app;
 }
+
+/** The Session Result a Patient sends. Anything else is a 400. */
+const SESSION_RESULT_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["sessionId", "reps", "durationSec", "performedAt"],
+  properties: {
+    sessionId: { type: "string", minLength: 1, maxLength: 128 },
+    reps: { type: "integer", minimum: 0 },
+    durationSec: { type: "number", exclusiveMinimum: 0 },
+    performedAt: {
+      type: "string",
+      format: "date-time",
+      // Seconds below 60: a JavaScript Date cannot hold a leap second.
+      pattern: "^\\d{4}-\\d{2}-\\d{2}.\\d{2}:\\d{2}:[0-5]",
+    },
+  },
+} as const;
 
 const STATUS_BY_OUTCOME = { saved: 201, resent: 200 } as const;
 

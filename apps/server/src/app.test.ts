@@ -145,6 +145,63 @@ describe("POST /sessions", () => {
     expect((await list(app, FRANEK)).json()).toEqual([franeks]);
   });
 
+  const { sessionId, reps, durationSec, performedAt } = squats;
+  it.each<[string, unknown]>([
+    ["sessionId is missing", { reps, durationSec, performedAt }],
+    ["sessionId is empty", { ...squats, sessionId: "" }],
+    ["sessionId is over 128 chars", { ...squats, sessionId: "s".repeat(129) }],
+    ["sessionId is not a string", { ...squats, sessionId: 1 }],
+    ["reps is missing", { sessionId, durationSec, performedAt }],
+    ["reps is negative", { ...squats, reps: -1 }],
+    ["reps is not an integer", { ...squats, reps: 1.5 }],
+    ["reps is a numeric string", { ...squats, reps: "12" }],
+    ["durationSec is missing", { sessionId, reps, performedAt }],
+    ["durationSec is zero", { ...squats, durationSec: 0 }],
+    ["durationSec is negative", { ...squats, durationSec: -1 }],
+    ["durationSec is a numeric string", { ...squats, durationSec: "45" }],
+    ["performedAt is missing", { sessionId, reps, durationSec }],
+    ["performedAt is not a date", { ...squats, performedAt: "yesterday" }],
+    ["performedAt has no time", { ...squats, performedAt: "2026-10-14" }],
+    [
+      "performedAt has no offset",
+      { ...squats, performedAt: "2026-10-14T09:30:00" },
+    ],
+    [
+      "performedAt is a leap second",
+      { ...squats, performedAt: "2026-12-31T23:59:60Z" },
+    ],
+    ["there is an extra field", { ...squats, patientId: "franek" }],
+    ["the body is an array", [squats]],
+  ])("refuses with 400 and saves nothing when %s", async (_, payload) => {
+    const app = testApp();
+
+    const response = await post(app, JULIA, payload);
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      statusCode: 400,
+      error: "Bad Request",
+    });
+    expect((await list(app, JULIA)).json()).toEqual([]);
+  });
+
+  it.each<[string, typeof squats]>([
+    ["reps is 0", { ...squats, reps: 0 }],
+    ["sessionId is 128 chars", { ...squats, sessionId: "s".repeat(128) }],
+    ["durationSec is a fraction", { ...squats, durationSec: 0.25 }],
+    [
+      "performedAt is in the future",
+      { ...squats, performedAt: "2099-01-01T00:00:00.000Z" },
+    ],
+  ])("saves a Session Result when %s", async (_, sessionResult) => {
+    const app = testApp();
+
+    const response = await post(app, JULIA, sessionResult);
+
+    expect(response.statusCode).toBe(201);
+    expect(response.json()).toEqual(sessionResult);
+  });
+
   it("refuses a caller who is not a Patient with 401", async () => {
     const app = testApp();
 
