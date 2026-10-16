@@ -42,15 +42,16 @@ I built this with [Claude Code](https://claude.com/claude-code), steering and re
 
 Corrections I made to the agent's work:
 
-- **Big PRs.** I rejected PRs that mixed several layers (#15) and set out how a PR should look: one scope (`core`, `server` or `web`), changes across layers as stacked PRs. A script now checks it locally and in CI (#21).
+- **Big PRs.** I rejected big PRs that mixed several layers. I set out how a PR should look: one scope (`core`, `server` or `web`), changes across layers as stacked PRs. A script now checks it locally and in CI.
 - **PR naming.** I set the title rule `<scope>: <Sentence>` with fixed prefixes, so PRs are easy to filter, label and follow.
-- **`countReps` as business logic.** I asked to keep `countReps` as an abstract piece of business logic and to take the threshold angles as a parameter. With that it can count squats, and also other exercises with different thresholds, such as planks.
-- **Time zone.** Reviewing the Sessions PR, I found the code forced the Europe/Warsaw time zone, ignoring the browser's. I asked for it to read the browser's setting instead.
-- **401 for unknown endpoints.** Reviewing the API, I noticed an unknown endpoint returned `401`. I asked for `404` instead (#39).
+- **`countReps` as business logic.** I asked to keep `countReps` as an abstract piece of business logic and to take the threshold angles as a parameter. With that it can count squats, and also other exercises with different thresholds, such as lunges.
+- **Routes in one place.** During review I noticed the agent had put some route logic, the list of public routes, in the patient-resolution module. I asked for it to move to the app, so all the routes are in one place.
+- **Time zone.** Reviewing the "Show a Patient's Session history" PR, I found the code forced the Europe/Warsaw time zone, ignoring the browser's. I asked for it to read the browser's setting instead.
+- **401 for unknown endpoints.** Reviewing the API, I noticed an unknown endpoint returned `401`. I asked for `404` instead.
 
 ## What I'd do next
 
-- Real sign-in instead of demo tokens in the bundle.
-- Automatic retries with backoff for a failed save, and queueing unsaved Session Results across a reload.
-- A chart of the knee angle with the thresholds and each counted Rep, so a physio can see why a squat didn't count.
+- Clear modularisation rules that avoid code entropy.
+- Dedicated agent for UI, dedicated agent for API, dedicated agent for domain logic. Each would own its own AGENTS.md, GLOSSARY.md, and ADRs (see Assumptions).
+- Automatic retries with backoff for a failed save, and queueing unsaved Session Results.
 - An end-to-end test across the browser and the API.
