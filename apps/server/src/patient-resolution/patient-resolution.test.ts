@@ -2,7 +2,8 @@ import { patients } from "@rep-counter/core";
 import { describe, expect, it } from "vitest";
 import { patientFor } from ".";
 
-const [{ token }] = patients;
+const token = patients[0]?.token;
+if (token === undefined) throw new Error("core has no Patients");
 
 describe("patientFor", () => {
   it.each(patients.map((patient) => [patient.name, patient] as const))(
