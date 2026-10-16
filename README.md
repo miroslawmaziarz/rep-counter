@@ -1,91 +1,57 @@
 # Rep Counter
 
-Take-home task for Physitrack MoCap. A patient does squats in front of a camera, the browser turns the video into one knee angle per frame, and this app counts the squats and keeps a history of sessions.
+Take-home task for Physitrack MoCap: count squats from per-frame knee angles in the browser and keep each Patient's history of Sessions. The brief is [`rep-counter-v2.html`](rep-counter-v2.html).
 
-Stack: Node, TypeScript, React.
+## Run it
 
-> **Status:** core counts Reps and validates Session Results, the API saves and lists each Patient's Session Results, and the web app counts a picked Recording, saves its Session Result and shows the chosen Patient's history.
-
-## Getting started
-
-Requires Node 22.22.2 or newer within 22.x (see `.nvmrc`; run `nvm use`).
+Requires Node 22 (see `.nvmrc`; run `nvm use`).
 
 ```sh
 npm install
 npm start   # API on http://localhost:3000, web app on http://localhost:5173
-npm test
+npm test    # unit, API and Fixture acceptance tests
+npm run check   # lint, format, typecheck, dependency rules
 ```
 
-If port 3000 is taken, run `PORT=3001 npm start`; the API and the web app's proxy both follow `PORT`.
+If port 3000 is taken, run `PORT=3001 npm start`.
 
-## Counting a Recording
+1. Open http://localhost:5173 and choose a Patient (Julia or Franek).
+2. Under **New Session**, pick a Recording from `packages/core/fixtures/`, such as `session-clean.json`.
+3. The browser counts the Reps and saves only the Session Result (`sessionId`, `reps`, `durationSec`, `performedAt`); the angles never leave the browser. The history below updates.
 
-1. Run `npm start` and open http://localhost:5173.
-2. Choose the Patient.
-3. Under **New Session**, click the **Recording** file input and pick a Fixture from `packages/core/fixtures/`, such as `session-clean.json`. Any JSON file in the [Fixture format](#fixture-format) works.
-
-The browser counts the Reps and shows them with the duration and, for a Fixture, its expected Reps. It then saves the Session Result (`sessionId`, `reps`, `durationSec`, `performedAt`) at once; the angles never leave the browser. Each pick is a new Session, even of the same file. If the save fails, **Retry** sends the same Session Result again, which the server saves once. Choosing another Patient discards the current Session.
-
-## Patients and tokens
-
-Every request to the API except `GET /health` must send `Authorization: Bearer <token>` for one of the demo Patients. Anything else gets `401`.
-
-| Patient | Token          |
-| ------- | -------------- |
-| Julia   | `julia-token`  |
-| Franek  | `franek-token` |
+To call the API directly, send a demo token (`julia-token` or `franek-token`):
 
 ```sh
 curl -H "Authorization: Bearer julia-token" http://localhost:3000/sessions
 ```
 
-These tokens are for the demo only. They are hard-coded in `packages/core/src/patients/patients.json`, and the web app ships every Patient's token to the browser, so anyone with the bundle can act as any Patient. A real deployment would issue tokens at sign-in.
-
-## Pull requests
-
-Each PR has one scope; the rule is in `AGENTS.md`. The `PR scopes` workflow checks it and sets the PR's `scope:*` label.
-
-The check is advisory: branch protection isn't available on this private repository's GitHub plan, so a failing check can't block a merge.
-
-## What counts as one rep
-
-The knee angle goes **below 100°**, then comes back **above 160°**. Nothing else counts.
-
-## Repository contents
-
-| Path                                          | Description                                                                                        |
-| --------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `rep-counter-v2.html`                         | The original task brief (open in a browser).                                                       |
-| `packages/core/fixtures/session-clean.json`   | Ten full squats, clean signal. Expected reps: 10.                                                  |
-| `packages/core/fixtures/session-noisy.json`   | Eight full squats; noisy tracking, and the patient pauses at the bottom of each. Expected reps: 8. |
-| `packages/core/fixtures/session-shallow.json` | Ten attempts; three only go halfway down. Expected reps: 7.                                        |
-
-## Fixture format
-
-Recordings are sampled at 30 frames per second.
-
-```json
-{
-  "description": "...",
-  "expectedReps": 10,
-  "sampleRateHz": 30,
-  "angles": [171.2, 172.4, "..."]
-}
-```
-
-## Planned scope
-
-1. `countReps(angles)` in TypeScript, tested against the fixtures.
-2. Backend (Node + TypeScript):
-   - `POST /sessions` saves `{ sessionId, reps, durationSec, performedAt }`. It must be idempotent: the same `sessionId` is saved once, since devices retry.
-   - `GET /sessions` lists the caller's sessions.
-   - Every request needs a token, and a patient sees only their own sessions (a hard-coded token per user is fine).
-3. Frontend (React + TypeScript): pick a fixture, count reps in the browser, send the result, show the session list. Raw angles never leave the browser; only the result is sent.
-
 ## Assumptions
 
-_To be filled in as the implementation lands._
+- **Technology.** I chose Node, TypeScript, Fastify, React with Vite and SQLite (Node's built-in `node:sqlite`) as the most straightforward stack: one language across browser and server, and no extra service to start.
+- **A Rep** is the knee angle going below 100°, then back above 160°. The gap between the thresholds absorbs noise and pauses at the bottom. A Recording ending deep gets no credit for the last Rep.
+- **The Rep rule is one function, not a strategy hierarchy.** I skipped a strategy pattern for Rep counting. `countReps` already takes the thresholds as a parameter, so another exercise, or a strategy per exercise, is easy to add to the current code when it's needed.
+- **Modularisation as an AI-assisted coding principle.** The code is split into small deep modules (a pure shared `core`, `server`, `web`), each owning one rule. A real application could give each module its own glossary, architecture notes and agent files, so an agent works with a small, well-described context.
+- **Sessions.** Picking a Recording starts a new Session with a fresh `sessionId`; `performedAt` is the moment of the pick. `durationSec` is the whole Recording's length. A Session with 0 Reps is still saved.
+- **Saving once.** `sessionId` is unique per Patient. A Resend of the same Session Result is saved once (`200`); different values for the same `sessionId` get `409`. See [ADR 0002](docs/adr/0002-resends-saved-once-per-patient.md).
+- **Patients.** Two demo Patients with hard-coded tokens stand in for sign-in; the web app ships both tokens, so this is for the demo only.
+- **Times** are shown in the browser's own time zone.
 
-## AI agent notes
+## Working with AI
 
-_Agent instructions file and a note on one thing the agent got wrong: to be added._
+I built this with [Claude Code](https://claude.com/claude-code), steering and reviewing rather than typing the code. The agent's instructions are in [`AGENTS.md`](AGENTS.md), the domain language in [`GLOSSARY.md`](GLOSSARY.md), decisions in [`docs/adr/`](docs/adr/), and the trail of the work in the [issues](https://github.com/miroslawmaziarz/rep-counter/issues?q=is%3Aissue) and [pull requests](https://github.com/miroslawmaziarz/rep-counter/pulls?q=is%3Apr).
+
+Corrections I made to the agent's work:
+
+- **Big PRs.** I rejected big PRs that mixed several layers. I set out how a PR should look: one scope (`core`, `server` or `web`), changes across layers as stacked PRs. A script now checks it locally and in CI.
+- **PR naming.** I set the title rule `<scope>: <Sentence>` with fixed prefixes, so PRs are easy to filter, label and follow.
+- **`countReps` as business logic.** I asked to keep `countReps` as an abstract piece of business logic and to take the threshold angles as a parameter. With that it can count squats, and also other exercises with different thresholds, such as lunges.
+- **Routes in one place.** During review I noticed the agent had put some route logic, the list of public routes, in the patient-resolution module. I asked for it to move to the app, so all the routes are in one place.
+- **Time zone.** Reviewing the "Show a Patient's Session history" PR, I found the code forced the Europe/Warsaw time zone, ignoring the browser's. I asked for it to read the browser's setting instead.
+- **401 for unknown endpoints.** Reviewing the API, I noticed an unknown endpoint returned `401`. I asked for `404` instead.
+
+## What I'd do next
+
+- Clear modularisation rules that avoid code entropy.
+- Dedicated agent for UI, dedicated agent for API, dedicated agent for domain logic. Each would own its own AGENTS.md, GLOSSARY.md, and ADRs (see Assumptions).
+- Automatic retries with backoff for a failed save, and queueing unsaved Session Results.
+- An end-to-end test across the browser and the API.
