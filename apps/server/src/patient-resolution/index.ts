@@ -1,5 +1,5 @@
 import { patients, type Patient } from "@rep-counter/core";
-import type { FastifyInstance, FastifyRequest } from "fastify";
+import type { FastifyInstance } from "fastify";
 import { httpError } from "../http-error";
 
 declare module "fastify" {
@@ -30,13 +30,20 @@ export function resolvePatients(app: FastifyInstance): void {
     const url = request.routeOptions.url;
     if (url === undefined || PUBLIC_URLS.has(url)) return;
 
-    const patient = patientFor(request);
+    const patient = patientFor(request.headers.authorization);
     if (!patient) throw httpError(401, "Unauthorized");
     request.patient = patient;
   });
 }
 
-function patientFor(request: FastifyRequest): Patient | undefined {
-  const match = /^Bearer (\S+)$/.exec(request.headers.authorization ?? "");
+/**
+ * The Patient whose token an `Authorization: Bearer <token>` header carries,
+ * or `undefined` for a missing header, a malformed one or an unknown token,
+ * which it does not tell apart.
+ */
+export function patientFor(
+  authorization: string | undefined,
+): Patient | undefined {
+  const match = /^Bearer (\S+)$/.exec(authorization ?? "");
   return match?.[1] === undefined ? undefined : PATIENTS_BY_TOKEN.get(match[1]);
 }
