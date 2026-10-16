@@ -60,6 +60,23 @@ describe("GET /health", () => {
   });
 });
 
+describe("an unknown route", () => {
+  it.each<[string, Record<string, string>]>([
+    ["without a token", {}],
+    ["with a Patient's token", { authorization: `Bearer ${JULIA}` }],
+  ])("is not found %s", async (_, headers) => {
+    const app = testApp();
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/session",
+      headers,
+    });
+
+    expect(response.statusCode).toBe(404);
+  });
+});
+
 describe("GET /sessions", () => {
   it.each([JULIA, FRANEK])(
     "lists no Session Results for the Patient with token %s",

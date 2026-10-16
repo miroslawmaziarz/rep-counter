@@ -17,16 +17,18 @@ const PATIENTS_BY_TOKEN = new Map(
 );
 
 /**
- * Requires every request but `/health` to carry `Authorization: Bearer
- * <token>` for a known Patient, and attaches that Patient as
+ * Requires every request to a route but `/health` to carry `Authorization:
+ * Bearer <token>` for a known Patient, and attaches that Patient as
  * `request.patient`. A missing header, a malformed one and an unknown token
- * all get the same 401, which does not say which it was.
+ * all get the same 401, which does not say which it was. A request to no
+ * route is let through, so it is a 404 with or without a token.
  */
 export function resolvePatients(app: FastifyInstance): void {
   app.decorateRequest("patient", null as unknown as Patient);
 
   app.addHook("onRequest", async (request) => {
-    if (PUBLIC_URLS.has(request.routeOptions.url ?? "")) return;
+    const url = request.routeOptions.url;
+    if (url === undefined || PUBLIC_URLS.has(url)) return;
 
     const patient = patientFor(request);
     if (!patient) throw httpError(401, "Unauthorized");
